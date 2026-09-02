@@ -296,32 +296,66 @@ export class CodeEditorPane {
 
     // Auto-indent, Tab key support, and auto-bracket close
     this.editorTextarea.addEventListener('keydown', (e: KeyboardEvent) => {
+      const start = this.editorTextarea.selectionStart;
+      const end = this.editorTextarea.selectionEnd;
+      const value = this.editorTextarea.value;
+
+      // 1. Auto-bracket pair closing
+      const pairs: Record<string, string> = {
+        '(': ')',
+        '[': ']',
+        '{': '}',
+        '"': '"',
+        "'": "'"
+      };
+
+      if (pairs[e.key]) {
+        e.preventDefault();
+        const selected = value.substring(start, end);
+        const closeChar = pairs[e.key];
+        this.editorTextarea.value = value.substring(0, start) + e.key + selected + closeChar + value.substring(end);
+        this.editorTextarea.selectionStart = start + 1;
+        this.editorTextarea.selectionEnd = start + 1 + selected.length;
+        this.updateLineNumbers();
+        this.scheduleAutoSave();
+        return;
+      }
+
+      // 2. Tab key indentation
       if (e.key === 'Tab') {
         e.preventDefault();
-        const start = this.editorTextarea.selectionStart;
-        const end = this.editorTextarea.selectionEnd;
-        const value = this.editorTextarea.value;
         this.editorTextarea.value = value.substring(0, start) + '    ' + value.substring(end);
         this.editorTextarea.selectionStart = this.editorTextarea.selectionEnd = start + 4;
         this.updateLineNumbers();
         this.scheduleAutoSave();
-      } else if (e.key === 'Enter') {
-        const start = this.editorTextarea.selectionStart;
-        const value = this.editorTextarea.value;
+        return;
+      }
+
+      // 3. Enter key with smart indentation
+      if (e.key === 'Enter') {
         const lineStart = value.lastIndexOf('\n', start - 1) + 1;
         const currentLine = value.substring(lineStart, start);
         const match = currentLine.match(/^\s*/);
         const indent = match ? match[0] : '';
 
-        // If line ends with '{', add extra indent
-        const extraIndent = currentLine.trim().endsWith('{') ? '    ' : '';
+        // Check if cursor is between { and }
+        const isBetweenBraces = value[start - 1] === '{' && value[end] === '}';
 
         e.preventDefault();
-        const insertion = '\n' + indent + extraIndent;
-        this.editorTextarea.value = value.substring(0, start) + insertion + value.substring(start);
-        this.editorTextarea.selectionStart = this.editorTextarea.selectionEnd = start + insertion.length;
+        if (isBetweenBraces) {
+          const insertion = '\n' + indent + '    \n' + indent;
+          this.editorTextarea.value = value.substring(0, start) + insertion + value.substring(end);
+          this.editorTextarea.selectionStart = this.editorTextarea.selectionEnd = start + indent.length + 5;
+        } else {
+          const extraIndent = currentLine.trim().endsWith('{') ? '    ' : '';
+          const insertion = '\n' + indent + extraIndent;
+          this.editorTextarea.value = value.substring(0, start) + insertion + value.substring(end);
+          this.editorTextarea.selectionStart = this.editorTextarea.selectionEnd = start + insertion.length;
+        }
+
         this.updateLineNumbers();
         this.scheduleAutoSave();
+        return;
       }
     });
 

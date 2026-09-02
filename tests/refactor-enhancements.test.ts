@@ -397,3 +397,60 @@ describe('LeetCode-Style Code Editor & Split Workspace', () => {
     app.destroy();
   });
 });
+
+describe('Code Editor Keyboard Enhancements', () => {
+  it('automatically closes bracket pairs when typing opening brackets', () => {
+    const pane = new CodeEditorPane({
+      platform: 'codeforces',
+      id: '1A',
+      qualifiedId: 'codeforces:1a',
+      title: 'Theatre Square',
+      statementHtml: '',
+      examples: [],
+      tags: [],
+      limits: {},
+      navigation: {},
+      url: 'https://codeforces.com/contest/1/problem/A'
+    });
+
+    const textarea = pane.getElement().querySelector('.lf-editor-textarea') as HTMLTextAreaElement;
+    textarea.value = '';
+    textarea.selectionStart = textarea.selectionEnd = 0;
+
+    // Type '{'
+    textarea.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: '{', bubbles: true }));
+    expect(textarea.value).toBe('{}');
+    expect(textarea.selectionStart).toBe(1);
+
+    // Type '(' inside
+    textarea.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: '(', bubbles: true }));
+    expect(textarea.value).toBe('{()}');
+    expect(textarea.selectionStart).toBe(2);
+  });
+
+  it('replaces highlighted selected text on Enter key', () => {
+    const pane = new CodeEditorPane({
+      platform: 'codeforces',
+      id: '1A',
+      qualifiedId: 'codeforces:1a',
+      title: 'Theatre Square',
+      statementHtml: '',
+      examples: [],
+      tags: [],
+      limits: {},
+      navigation: {},
+      url: 'https://codeforces.com/contest/1/problem/A'
+    });
+
+    const textarea = pane.getElement().querySelector('.lf-editor-textarea') as HTMLTextAreaElement;
+    textarea.value = 'hello WORLD test';
+    // Select 'WORLD' (index 6 to 11)
+    textarea.selectionStart = 6;
+    textarea.selectionEnd = 11;
+
+    // Press Enter
+    textarea.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(textarea.value).not.toContain('WORLD');
+    expect(textarea.value).toBe('hello \n test');
+  });
+});
