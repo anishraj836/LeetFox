@@ -1,3 +1,4 @@
+import { KeyboardCheatSheet } from '../src/ui/components/KeyboardCheatSheet';
 import { sanitizeHtml } from '../src/core/utils/sanitize';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { JSDOM } from 'jsdom';
@@ -294,5 +295,32 @@ describe('Auditor Findings & Escape Handling', () => {
     expect(switcher?.style.display).toContain('flex');
 
     app.destroy();
+  });
+});
+
+describe('Modal Close Button and State Toggle', () => {
+  it('closes KeyboardCheatSheet modal when clicking the ✕ button', () => {
+    const sheet = new KeyboardCheatSheet();
+    sheet.open();
+    expect(sheet.isModalOpen()).toBe(true);
+    expect(sheet.getElement().classList.contains('open')).toBe(true);
+
+    const closeBtn = sheet.getElement().querySelector('.lf-btn-icon') as HTMLButtonElement;
+    expect(closeBtn).not.toBeNull();
+    closeBtn.click();
+
+    expect(sheet.isModalOpen()).toBe(false);
+    expect(sheet.getElement().classList.contains('open')).toBe(false);
+  });
+
+  it('closes KeyboardCheatSheet modal when clicking overlay backdrop', () => {
+    const sheet = new KeyboardCheatSheet();
+    sheet.open();
+    expect(sheet.isModalOpen()).toBe(true);
+
+    sheet.getElement().click();
+
+    expect(sheet.isModalOpen()).toBe(false);
+    expect(sheet.getElement().classList.contains('open')).toBe(false);
   });
 });

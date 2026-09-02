@@ -3,6 +3,7 @@ import { createElement } from '../../core/utils/dom';
 export class KeyboardCheatSheet {
   private element: HTMLElement;
   private isOpen = false;
+  private boundWindowEscape: (e: KeyboardEvent) => void;
 
   private shortcuts = [
     { key: 'J', desc: 'Next problem' },
@@ -17,13 +18,21 @@ export class KeyboardCheatSheet {
   ];
 
   constructor() {
+    this.boundWindowEscape = (e: KeyboardEvent) => {
+      if (this.isOpen && e.key === 'Escape') {
+        e.stopPropagation();
+        this.close();
+      }
+    };
+
     this.element = createElement('div', {
       className: 'lf-modal-overlay',
-      style: 'display: none;',
-      onClick: (e: MouseEvent) => {
-        if (e.target === this.element) {
-          this.close();
-        }
+      style: 'display: none !important;'
+    });
+
+    this.element.addEventListener('click', (e: MouseEvent) => {
+      if (e.target === this.element) {
+        this.close();
       }
     });
 
@@ -35,8 +44,14 @@ export class KeyboardCheatSheet {
     const closeBtn = createElement('button', {
       className: 'lf-btn lf-btn-icon',
       type: 'button',
-      onClick: () => this.close()
+      title: 'Close (Esc)'
     }, '✕');
+
+    closeBtn.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.close();
+    });
 
     header.appendChild(title);
     header.appendChild(closeBtn);
@@ -55,13 +70,6 @@ export class KeyboardCheatSheet {
 
     modal.appendChild(grid);
     this.element.appendChild(modal);
-
-    window.addEventListener('keydown', (e: KeyboardEvent) => {
-      if (this.isOpen && e.key === 'Escape') {
-        e.stopPropagation();
-        this.close();
-      }
-    });
   }
 
   public isModalOpen(): boolean {
@@ -70,12 +78,16 @@ export class KeyboardCheatSheet {
 
   public open(): void {
     this.isOpen = true;
-    this.element.style.display = 'flex';
+    this.element.classList.add('open');
+    this.element.style.setProperty('display', 'flex', 'important');
+    window.addEventListener('keydown', this.boundWindowEscape);
   }
 
   public close(): void {
     this.isOpen = false;
-    this.element.style.display = 'none';
+    this.element.classList.remove('open');
+    this.element.style.setProperty('display', 'none', 'important');
+    window.removeEventListener('keydown', this.boundWindowEscape);
   }
 
   public toggle(): void {

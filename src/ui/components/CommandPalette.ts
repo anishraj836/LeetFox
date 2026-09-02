@@ -30,11 +30,12 @@ export class CommandPalette {
 
     this.element = createElement('div', {
       className: 'lf-palette-overlay',
-      style: 'display: none;',
-      onClick: (e: MouseEvent) => {
-        if (e.target === this.element) {
-          this.close();
-        }
+      style: 'display: none !important;'
+    });
+
+    this.element.addEventListener('click', (e: MouseEvent) => {
+      if (e.target === this.element) {
+        this.close();
       }
     });
 
@@ -184,7 +185,8 @@ export class CommandPalette {
 
   public open(): void {
     this.isOpen = true;
-    this.element.style.display = 'flex';
+    this.element.classList.add('open');
+    this.element.style.setProperty('display', 'flex', 'important');
     this.input.value = '';
     this.filter('');
     window.addEventListener('keydown', this.boundWindowEscape);
@@ -195,7 +197,8 @@ export class CommandPalette {
 
   public close(): void {
     this.isOpen = false;
-    this.element.style.display = 'none';
+    this.element.classList.remove('open');
+    this.element.style.setProperty('display', 'none', 'important');
     this.input.blur();
     window.removeEventListener('keydown', this.boundWindowEscape);
   }

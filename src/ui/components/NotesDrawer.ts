@@ -28,11 +28,12 @@ export class NotesDrawer {
 
     this.element = createElement('div', {
       className: 'lf-notes-overlay',
-      style: 'display: none;',
-      onClick: (e: MouseEvent) => {
-        if (e.target === this.element) {
-          this.close();
-        }
+      style: 'display: none !important;'
+    });
+
+    this.element.addEventListener('click', (e: MouseEvent) => {
+      if (e.target === this.element) {
+        this.close();
       }
     });
 
@@ -50,9 +51,14 @@ export class NotesDrawer {
     const closeBtn = createElement('button', {
       className: 'lf-btn lf-btn-icon',
       type: 'button',
-      title: 'Close (Esc)',
-      onClick: () => this.close()
+      title: 'Close (Esc)'
     }, '✕');
+
+    closeBtn.addEventListener('click', (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.close();
+    });
 
     header.appendChild(titleGroup);
     header.appendChild(closeBtn);
@@ -93,7 +99,8 @@ export class NotesDrawer {
 
   public open(): void {
     this.isOpen = true;
-    this.element.style.display = 'flex';
+    this.element.classList.add('open');
+    this.element.style.setProperty('display', 'flex', 'important');
     window.addEventListener('keydown', this.boundWindowEscape);
     setTimeout(() => {
       this.textarea.focus();
@@ -106,7 +113,8 @@ export class NotesDrawer {
       this.callbacks.onSaveNotes(this.textarea.value);
     }
     this.isOpen = false;
-    this.element.style.display = 'none';
+    this.element.classList.remove('open');
+    this.element.style.setProperty('display', 'none', 'important');
     window.removeEventListener('keydown', this.boundWindowEscape);
     this.callbacks.onClose();
   }

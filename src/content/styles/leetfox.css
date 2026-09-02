@@ -696,8 +696,12 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   background-color: rgba(0, 0, 0, 0.6) !important;
   backdrop-filter: blur(2px) !important;
   z-index: 999999 !important;
-  display: flex !important;
+  display: none !important;
   justify-content: flex-end !important;
+}
+
+.lf-notes-overlay.open {
+  display: flex !important;
 }
 
 .lf-notes-drawer {
@@ -763,10 +767,14 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   background-color: rgba(0, 0, 0, 0.65) !important;
   backdrop-filter: blur(3px) !important;
   z-index: 999999 !important;
-  display: flex !important;
+  display: none !important;
   align-items: flex-start !important;
   justify-content: center !important;
   padding-top: 15vh !important;
+}
+
+.lf-palette-overlay.open {
+  display: flex !important;
 }
 
 .lf-palette-modal {
@@ -844,9 +852,13 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   background-color: rgba(0, 0, 0, 0.6) !important;
   backdrop-filter: blur(2px) !important;
   z-index: 999999 !important;
-  display: flex !important;
+  display: none !important;
   align-items: center !important;
   justify-content: center !important;
+}
+
+.lf-modal-overlay.open {
+  display: flex !important;
 }
 
 .lf-modal-content {
