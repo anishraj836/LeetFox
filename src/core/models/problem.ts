@@ -42,4 +42,7 @@ export interface Problem {
   navigation: ProblemNavigation;
   url: string;
   submitUrl?: string;
+  solutionsUrl?: string;
+  editorialUrl?: string;
+  isLiveContest?: boolean;
 }

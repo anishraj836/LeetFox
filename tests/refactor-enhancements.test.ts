@@ -1,3 +1,5 @@
+import { DEFAULT_PROBLEM_STATE } from '../src/core/models/state';
+import { Header } from '../src/ui/components/Header';
 import { KeyboardCheatSheet } from '../src/ui/components/KeyboardCheatSheet';
 import { sanitizeHtml } from '../src/core/utils/sanitize';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -452,5 +454,102 @@ describe('Code Editor Keyboard Enhancements', () => {
     textarea.dispatchEvent(new (window as any).KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
     expect(textarea.value).not.toContain('WORLD');
     expect(textarea.value).toBe('hello \n test');
+  });
+});
+
+describe('Live Contest Protection & Solutions Button', () => {
+  it('detects live contest and locks solutions button to prevent contest violations', () => {
+    const parser = new CodeforcesParser();
+    const liveContestHtml = `
+      <div id="pageContent">
+        <div class="problem-statement">
+          <div class="header"><div class="title">B. Running Problem</div></div>
+          <div>Statement</div>
+        </div>
+      </div>
+      <div id="sidebar">
+        <div class="contest-state-phase">Contest is running</div>
+        <div id="countdown">01:45:20</div>
+      </div>
+    `;
+
+    const dom = new JSDOM(liveContestHtml, { url: 'https://codeforces.com/contest/999/problem/B' });
+    const problem = parser.parse(dom.window.document, new URL('https://codeforces.com/contest/999/problem/B'));
+
+    expect(problem).not.toBeNull();
+    expect(problem?.isLiveContest).toBe(true);
+
+    // Mount and verify solutions button is locked
+    const header = new Header(problem!, { ...DEFAULT_PROBLEM_STATE }, { ...DEFAULT_PREFERENCES }, {
+      onToggleSolved: () => {},
+      onToggleBookmark: () => {},
+      onToggleNotes: () => {},
+      onToggleTheme: () => {},
+      onToggleViewOriginal: () => {},
+      onToggleSplitMode: () => {},
+      onOpenPalette: () => {},
+      onOpenShortcuts: () => {}
+    });
+
+    const solBtn = header.getElement().querySelector('.lf-btn-locked') as HTMLButtonElement;
+    expect(solBtn).not.toBeNull();
+    expect(solBtn.disabled).toBe(true);
+    expect(solBtn.textContent).toContain('Solutions');
+    expect(solBtn.title).toContain('hidden during active contests');
+  });
+
+  it('enables solutions button during practice/problemset mode', () => {
+    const parser = new CodeforcesParser();
+    const practiceHtml = `
+      <div id="pageContent">
+        <div class="problem-statement">
+          <div class="header"><div class="title">A. Practice Problem</div></div>
+          <div>Statement</div>
+        </div>
+      </div>
+      <div id="sidebar">
+        <div class="sidebox">
+          <div class="caption">→ Contest materials</div>
+          <ul>
+            <li><a href="/blog/entry/7890">Tutorial (en)</a></li>
+          </ul>
+        </div>
+      </div>
+    `;
+
+    const dom = new JSDOM(practiceHtml, { url: 'https://codeforces.com/problemset/problem/100/A' });
+    const problem = parser.parse(dom.window.document, new URL('https://codeforces.com/problemset/problem/100/A'));
+
+    expect(problem).not.toBeNull();
+    expect(problem?.isLiveContest).toBe(false);
+    expect(problem?.editorialUrl).toContain('https://codeforces.com/blog/entry/7890');
+    expect(problem?.solutionsUrl).toContain('https://codeforces.com/problemset/status/100/problem/A');
+  });
+
+  it('synchronizes Split View button label across Header and LeetfoxApp', async () => {
+    const storage = StorageManager.getInstance();
+    const adapter = new CodeforcesAdapter();
+    const dom = new JSDOM('<div id="pageContent"><div class="problem-statement"><div class="header"><div class="title">A. Test</div></div><div>Statement</div></div></div>', { url: 'https://codeforces.com/contest/1/problem/A' });
+    const doc = dom.window.document;
+
+    const problem = adapter.parseProblem(doc, new URL('https://codeforces.com/contest/1/problem/A'));
+    expect(problem).not.toBeNull();
+    if (!problem) return;
+
+    const state = await storage.getProblemState(problem.platform, problem.id);
+    const app = new LeetfoxApp(adapter, problem, state, { ...DEFAULT_PREFERENCES });
+    await app.mount(doc);
+
+    const splitBtn = doc.querySelector('.lf-header')!.querySelectorAll('.lf-btn')[3] as HTMLButtonElement;
+    expect(splitBtn.textContent).toBe('◫ Split');
+
+    // Toggle via app
+    app.toggleSplitMode();
+    expect(splitBtn.textContent).toBe('▢ Full');
+
+    app.toggleSplitMode();
+    expect(splitBtn.textContent).toBe('◫ Split');
+
+    app.destroy();
   });
 });

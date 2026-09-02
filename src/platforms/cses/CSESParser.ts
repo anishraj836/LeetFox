@@ -19,6 +19,8 @@ export class CSESParser {
       const category = this.extractCategory(doc);
       const navigation = this.extractNavigation(doc, url);
 
+      const solutionsUrl = id ? `https://cses.fi/problemset/stats/${id}/` : undefined;
+
       return {
         platform: 'cses',
         id,
@@ -34,7 +36,9 @@ export class CSESParser {
         limits,
         navigation,
         url: url.href,
-        submitUrl: this.extractSubmitUrl(doc, url)
+        submitUrl: this.extractSubmitUrl(doc, url),
+        solutionsUrl,
+        isLiveContest: false
       };
     } catch (err) {
       console.error('[Leetfox CSES] Error parsing problem', err);

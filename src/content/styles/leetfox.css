@@ -1149,3 +1149,27 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   margin: 0 !important;
   white-space: pre-wrap !important;
 }
+
+/* Solutions Button and Live Contest Lock */
+.lf-btn-locked {
+  opacity: 0.55 !important;
+  cursor: not-allowed !important;
+  background-color: var(--lf-bg-card) !important;
+  border-color: var(--lf-border) !important;
+  color: var(--lf-text-muted) !important;
+}
+
+.lf-btn-locked:hover {
+  background-color: var(--lf-bg-card) !important;
+  border-color: var(--lf-border) !important;
+}
+
+.lf-btn-solutions {
+  color: var(--lf-accent) !important;
+  border-color: var(--lf-accent-light) !important;
+}
+
+.lf-btn-solutions:hover {
+  border-color: var(--lf-accent) !important;
+  background-color: var(--lf-accent-light) !important;
+}

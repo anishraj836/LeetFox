@@ -156,6 +156,26 @@ export class CodeEditorPane {
       }
     }, '📋 Copy');
 
+    let solBtn: HTMLButtonElement;
+    if (this.problem.isLiveContest) {
+      solBtn = createElement('button', {
+        className: 'lf-btn lf-btn-locked',
+        type: 'button',
+        title: 'Solutions & Submissions are hidden during active contests to comply with contest rules.',
+        disabled: true
+      }, '🔒 Solutions');
+    } else {
+      const solUrl = this.problem.editorialUrl || this.problem.solutionsUrl;
+      solBtn = createElement('button', {
+        className: `lf-btn ${!solUrl ? 'disabled' : ''}`,
+        type: 'button',
+        title: solUrl ? 'View problem solutions, editorial, or accepted submissions' : 'No public solutions found',
+        onClick: () => {
+          if (solUrl) window.open(solUrl, '_blank');
+        }
+      }, '💡 Solutions');
+    }
+
     const submitBtn = createElement('button', {
       className: 'lf-btn lf-btn-primary',
       type: 'button',
@@ -171,6 +191,7 @@ export class CodeEditorPane {
 
     rightTools.appendChild(resetBtn);
     rightTools.appendChild(copyBtn);
+    rightTools.appendChild(solBtn);
     rightTools.appendChild(submitBtn);
 
     toolbar.appendChild(leftTools);

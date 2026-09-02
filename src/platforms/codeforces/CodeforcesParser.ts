@@ -22,6 +22,9 @@ export class CodeforcesParser {
       const { tags, difficulty } = this.extractTagsAndRating(doc);
       const contest = this.extractContestInfo(doc, urlInfo);
       const navigation = this.extractNavigation(doc, url);
+      const isLiveContest = this.detectLiveContest(doc, url);
+      const solutionsUrl = this.extractSolutionsUrl(doc, url, urlInfo);
+      const editorialUrl = this.extractEditorialUrl(doc, url);
 
       const id = `${urlInfo.contestId}${urlInfo.index}`;
 
@@ -43,7 +46,10 @@ export class CodeforcesParser {
         contest,
         navigation,
         url: url.href,
-        submitUrl: this.extractSubmitUrl(doc, url)
+        submitUrl: this.extractSubmitUrl(doc, url),
+        solutionsUrl,
+        editorialUrl,
+        isLiveContest
       };
     } catch (err) {
       console.error('[Leetfox Codeforces] Error parsing problem', err);
@@ -324,6 +330,70 @@ export class CodeforcesParser {
       const href = submitLink.getAttribute('href');
       if (href) return new URL(href, currentUrl).href;
     }
+    return undefined;
+  }
+
+  public detectLiveContest(doc: Document, url: URL): boolean {
+    // Problemset archive pages are never live contests
+    if (url.pathname.includes('/problemset/')) {
+      return false;
+    }
+
+    // Check for countdown timer (indicates running or upcoming live contest)
+    const countdownEl = doc.querySelector('#countdown, .countdown, [id*="countdown"]');
+    if (countdownEl && (countdownEl.textContent || '').trim().length > 0) {
+      return true;
+    }
+
+    // Check contest state phase indicator
+    const stateEl = doc.querySelector('.contest-state-phase, .contest-state, .contest-status');
+    if (stateEl) {
+      const text = (stateEl.textContent || '').toLowerCase();
+      if (text.includes('running') || text.includes('coding') || text.includes('before') || text.includes('remain')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  public extractSolutionsUrl(doc: Document, url: URL, urlInfo: { contestId: string; index: string }): string | undefined {
+    // Check if status link is available in the sidebar
+    const statusLink = doc.querySelector('a[href*="/status"], a[href*="/problemset/status"]');
+    if (statusLink) {
+      const href = statusLink.getAttribute('href');
+      if (href) return new URL(href, url).href;
+    }
+
+    if (urlInfo.contestId && urlInfo.index) {
+      return `https://codeforces.com/problemset/status/${urlInfo.contestId}/problem/${urlInfo.index}`;
+    }
+
+    return undefined;
+  }
+
+  public extractEditorialUrl(doc: Document, url: URL): string | undefined {
+    // Look for tutorial/editorial link in sidebar sideboxes
+    const sideboxes = doc.querySelectorAll(CODEFORCES_SELECTORS.sideboxes);
+    for (const box of Array.from(sideboxes)) {
+      const caption = (box.querySelector('.caption')?.textContent || '').toLowerCase();
+      if (caption.includes('material') || caption.includes('tutorial') || caption.includes('announcement')) {
+        const links = box.querySelectorAll('a[href*="/blog/entry/"]');
+        for (const link of Array.from(links)) {
+          const text = (link.textContent || '').toLowerCase();
+          if (text.includes('tutorial') || text.includes('editorial') || text.includes('solution') || text.includes('analysis')) {
+            const href = link.getAttribute('href');
+            if (href) return new URL(href, url).href;
+          }
+        }
+        // Fallback: first blog entry in materials box
+        if (links.length > 0) {
+          const href = links[0].getAttribute('href');
+          if (href) return new URL(href, url).href;
+        }
+      }
+    }
+
     return undefined;
   }
 }

@@ -168,6 +168,8 @@ export class LeetfoxApp {
       this.splitContainer.classList.add('lf-full-statement');
       this.editorPaneWrapper.style.display = 'none';
     }
+    this.header.updateSplitMode(this.isSplitMode);
+    this.commandPalette.setCommands(this.buildCommands());
   }
 
   public isAnyModalOpen(): boolean {
@@ -279,6 +281,16 @@ export class LeetfoxApp {
         title: 'Go to Submit Page',
         category: 'Navigation',
         run: () => { window.location.href = this.problem.submitUrl!; }
+      });
+    }
+
+    if (!this.problem.isLiveContest && (this.problem.editorialUrl || this.problem.solutionsUrl)) {
+      const solUrl = this.problem.editorialUrl || this.problem.solutionsUrl;
+      commands.push({
+        id: 'open-solutions',
+        title: 'View Solutions & Editorial',
+        category: 'Help',
+        run: () => { window.open(solUrl, '_blank'); }
       });
     }
 

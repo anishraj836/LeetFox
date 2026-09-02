@@ -22,6 +22,7 @@ export class Header {
   private themeBtn: HTMLButtonElement;
   private originalToggleBtn: HTMLButtonElement;
   private splitToggleBtn: HTMLButtonElement;
+  private solutionsBtn: HTMLButtonElement;
   private isSplitMode = true;
 
   constructor(
@@ -103,14 +104,28 @@ export class Header {
 
     // Split View Toggle
     this.splitToggleBtn = createElement('button', {
-      className: 'lf-btn active',
+      className: 'lf-btn',
       title: 'Toggle Code Editor Split Screen',
-      onClick: () => {
-        this.isSplitMode = !this.isSplitMode;
-        this.splitToggleBtn.textContent = this.isSplitMode ? '◫ Split' : '▢ Full';
-        this.callbacks.onToggleSplitMode();
-      }
+      onClick: () => this.callbacks.onToggleSplitMode()
     }, '◫ Split');
+
+    // Solutions / Submissions Button with Live Contest Anti-Cheat Guard
+    if (this.problem.isLiveContest) {
+      this.solutionsBtn = createElement('button', {
+        className: 'lf-btn lf-btn-locked',
+        title: 'Solutions & Submissions are hidden during active contests to comply with contest rules.',
+        disabled: true
+      }, '🔒 Solutions');
+    } else {
+      const solUrl = this.problem.editorialUrl || this.problem.solutionsUrl;
+      this.solutionsBtn = createElement('button', {
+        className: `lf-btn ${!solUrl ? 'disabled' : ''}`,
+        title: solUrl ? 'View Problem Solutions & Editorial' : 'No public solutions found for this problem',
+        onClick: () => {
+          if (solUrl) window.open(solUrl, '_blank');
+        }
+      }, '💡 Solutions');
+    }
 
     const paletteBtn = createElement('button', {
       className: 'lf-btn',
@@ -141,6 +156,7 @@ export class Header {
     actionsGroup.appendChild(this.bookmarkBtn);
     actionsGroup.appendChild(this.notesBtn);
     actionsGroup.appendChild(this.splitToggleBtn);
+    actionsGroup.appendChild(this.solutionsBtn);
     actionsGroup.appendChild(paletteBtn);
     actionsGroup.appendChild(this.themeBtn);
     actionsGroup.appendChild(helpBtn);
@@ -149,6 +165,11 @@ export class Header {
     inner.appendChild(leftGroup);
     inner.appendChild(actionsGroup);
     this.element.appendChild(inner);
+  }
+
+  public updateSplitMode(isSplit: boolean): void {
+    this.isSplitMode = isSplit;
+    this.splitToggleBtn.textContent = this.isSplitMode ? '◫ Split' : '▢ Full';
   }
 
   public updateState(state: ProblemState): void {
