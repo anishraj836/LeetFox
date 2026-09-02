@@ -9,6 +9,7 @@ export interface HeaderCallbacks {
   onToggleNotes: () => void;
   onToggleTheme: () => void;
   onToggleViewOriginal: () => void;
+  onToggleSplitMode: () => void;
   onOpenPalette: () => void;
   onOpenShortcuts: () => void;
 }
@@ -20,6 +21,8 @@ export class Header {
   private notesBtn: HTMLButtonElement;
   private themeBtn: HTMLButtonElement;
   private originalToggleBtn: HTMLButtonElement;
+  private splitToggleBtn: HTMLButtonElement;
+  private isSplitMode = true;
 
   constructor(
     private problem: Problem,
@@ -98,6 +101,17 @@ export class Header {
       onClick: () => this.callbacks.onToggleNotes()
     }, '📝');
 
+    // Split View Toggle
+    this.splitToggleBtn = createElement('button', {
+      className: 'lf-btn active',
+      title: 'Toggle Code Editor Split Screen',
+      onClick: () => {
+        this.isSplitMode = !this.isSplitMode;
+        this.splitToggleBtn.textContent = this.isSplitMode ? '◫ Split' : '▢ Full';
+        this.callbacks.onToggleSplitMode();
+      }
+    }, '◫ Split');
+
     const paletteBtn = createElement('button', {
       className: 'lf-btn',
       title: 'Command Palette (Cmd+K / Ctrl+K)',
@@ -126,6 +140,7 @@ export class Header {
     actionsGroup.appendChild(this.solvedBtn);
     actionsGroup.appendChild(this.bookmarkBtn);
     actionsGroup.appendChild(this.notesBtn);
+    actionsGroup.appendChild(this.splitToggleBtn);
     actionsGroup.appendChild(paletteBtn);
     actionsGroup.appendChild(this.themeBtn);
     actionsGroup.appendChild(helpBtn);

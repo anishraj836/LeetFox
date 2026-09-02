@@ -206,8 +206,17 @@ export class StorageManager {
     return () => this.prefListeners.delete(listener);
   }
 
+  private serializeState(state: ProblemState): string {
+    return JSON.stringify({
+      solved: state.solved,
+      attempted: state.attempted,
+      bookmarked: state.bookmarked,
+      notes: state.notes
+    });
+  }
+
   private notifyStateListeners(qualifiedId: string, state: ProblemState): void {
-    const serialized = JSON.stringify(state);
+    const serialized = this.serializeState(state);
     if (this.lastNotifiedState.get(qualifiedId) === serialized) {
       return; // Deduplicate identical notification
     }

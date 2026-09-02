@@ -14,6 +14,7 @@ registry.register(new CSESAdapter());
 let currentApp: LeetfoxApp | null = null;
 let lastProcessedUrl = '';
 let isBootstrapping = false;
+let bootstrapDebounceTimer: any = null;
 
 async function bootstrap(): Promise<void> {
   if (isBootstrapping) return;
@@ -21,12 +22,15 @@ async function bootstrap(): Promise<void> {
 
   try {
     const currentUrlStr = window.location.href;
-    if (currentUrlStr === lastProcessedUrl && document.getElementById('leetfox-app')) {
+    const currentUrl = new URL(currentUrlStr);
+    const normalizedUrl = currentUrl.origin + currentUrl.pathname;
+
+    // Check if already cleanly mounted for this problem URL
+    if (normalizedUrl === lastProcessedUrl && document.getElementById('leetfox-app')) {
       return;
     }
 
-    const url = new URL(currentUrlStr);
-    const adapter = registry.detectAdapter(url);
+    const adapter = registry.detectAdapter(currentUrl);
     if (!adapter) {
       if (currentApp) {
         currentApp.destroy();
@@ -35,7 +39,7 @@ async function bootstrap(): Promise<void> {
       return;
     }
 
-    if (!adapter.isProblemPage(url, document)) {
+    if (!adapter.isProblemPage(currentUrl, document)) {
       if (currentApp) {
         currentApp.destroy();
         currentApp = null;
@@ -43,17 +47,18 @@ async function bootstrap(): Promise<void> {
       return;
     }
 
-    const problem = adapter.parseProblem(document, url);
+    const problem = adapter.parseProblem(document, currentUrl);
     if (!problem) {
       console.info('[Leetfox] Problem parsing did not find required elements. Original page preserved.');
       return;
     }
 
-    // Clean up previous app instance
+    // Clean up previous app instance and purge any rogue duplicates in DOM
     if (currentApp) {
       currentApp.destroy();
       currentApp = null;
     }
+    document.querySelectorAll('#leetfox-app, #lf-floating-switcher').forEach(el => el.remove());
 
     const storage = StorageManager.getInstance();
     const state = await storage.getProblemState(problem.platform, problem.id);
@@ -66,7 +71,7 @@ async function bootstrap(): Promise<void> {
 
     currentApp = new LeetfoxApp(adapter, problem, state, prefs);
     await currentApp.mount(document);
-    lastProcessedUrl = currentUrlStr;
+    lastProcessedUrl = normalizedUrl;
     console.log(`[Leetfox] Initialized modern view for ${adapter.name}: ${problem.id} - ${problem.title}`);
   } catch (err) {
     console.error('[Leetfox] Failed to mount application', err);
@@ -75,28 +80,33 @@ async function bootstrap(): Promise<void> {
   }
 }
 
+function scheduleBootstrap(): void {
+  if (bootstrapDebounceTimer) clearTimeout(bootstrapDebounceTimer);
+  bootstrapDebounceTimer = setTimeout(() => {
+    bootstrap();
+  }, 40);
+}
+
 // Run on page load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    bootstrap();
+    scheduleBootstrap();
   });
 } else {
-  bootstrap();
+  scheduleBootstrap();
 }
 
-// Intercept SPA navigation without expensive subtree MutationObservers
-window.addEventListener('popstate', () => {
-  bootstrap();
-});
+// Intercept SPA navigation cleanly
+window.addEventListener('popstate', scheduleBootstrap);
 
 const originalPushState = history.pushState;
 history.pushState = function (data: any, unused: string, url?: string | URL | null) {
   originalPushState.call(this, data, unused, url);
-  setTimeout(bootstrap, 50);
+  scheduleBootstrap();
 };
 
 const originalReplaceState = history.replaceState;
 history.replaceState = function (data: any, unused: string, url?: string | URL | null) {
   originalReplaceState.call(this, data, unused, url);
-  setTimeout(bootstrap, 50);
+  scheduleBootstrap();
 };

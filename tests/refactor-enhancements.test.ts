@@ -324,3 +324,76 @@ describe('Modal Close Button and State Toggle', () => {
     expect(sheet.getElement().classList.contains('open')).toBe(false);
   });
 });
+
+import { CodeEditorPane } from '../src/ui/components/CodeEditorPane';
+
+describe('LeetCode-Style Code Editor & Split Workspace', () => {
+  it('renders code editor pane with language selector and testcase console', () => {
+    const mockProblem = {
+      platform: 'codeforces',
+      id: '4A',
+      qualifiedId: 'codeforces:4a',
+      title: 'Watermelon',
+      statementHtml: '<p>Weight w</p>',
+      examples: [{ id: 1, input: '8', output: 'YES' }],
+      tags: ['math'],
+      limits: { timeLimit: '1.0s', memoryLimit: '64MB' },
+      navigation: {},
+      url: 'https://codeforces.com/contest/4/problem/A'
+    };
+
+    const pane = new CodeEditorPane(mockProblem);
+    const el = pane.getElement();
+    expect(el).not.toBeNull();
+
+    // Verify language selector
+    const select = el.querySelector('.lf-lang-select') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    expect(select.value).toBe('cpp');
+
+    // Verify textarea has starter template
+    const textarea = el.querySelector('.lf-editor-textarea') as HTMLTextAreaElement;
+    expect(textarea).not.toBeNull();
+    expect(textarea.value).toContain('#include <iostream>');
+
+    // Verify line numbers
+    const lineNumbers = el.querySelector('.lf-line-numbers');
+    expect(lineNumbers?.textContent).toContain('1');
+
+    // Verify testcase console
+    const consoleTabs = el.querySelector('.lf-console-tabs');
+    expect(consoleTabs?.textContent).toContain('Case 1');
+  });
+
+  it('supports toggling between Split View and Full Statement View', async () => {
+    const storage = StorageManager.getInstance();
+    const adapter = new CodeforcesAdapter();
+    const dom = new JSDOM('<div id="pageContent"><div class="problem-statement"><div class="header"><div class="title">A. Test</div></div><div>Statement</div></div></div>', { url: 'https://codeforces.com/contest/1/problem/A' });
+    const doc = dom.window.document;
+
+    const problem = adapter.parseProblem(doc, new URL('https://codeforces.com/contest/1/problem/A'));
+    expect(problem).not.toBeNull();
+    if (!problem) return;
+
+    const state = await storage.getProblemState(problem.platform, problem.id);
+    const app = new LeetfoxApp(adapter, problem, state, { ...DEFAULT_PREFERENCES });
+    await app.mount(doc);
+
+    const splitContainer = doc.querySelector('.lf-split-container');
+    const editorRight = doc.querySelector('.lf-split-right') as HTMLElement;
+    expect(splitContainer).not.toBeNull();
+    expect(editorRight?.style.display).not.toBe('none');
+
+    // Toggle to full statement
+    app.toggleSplitMode();
+    expect(splitContainer?.classList.contains('lf-full-statement')).toBe(true);
+    expect(editorRight?.style.display).toBe('none');
+
+    // Toggle back to split
+    app.toggleSplitMode();
+    expect(splitContainer?.classList.contains('lf-full-statement')).toBe(false);
+    expect(editorRight?.style.display).toBe('flex');
+
+    app.destroy();
+  });
+});

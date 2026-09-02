@@ -13,6 +13,7 @@ import { ProgressBar } from './components/ProgressBar';
 import { NotesDrawer } from './components/NotesDrawer';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { KeyboardCheatSheet } from './components/KeyboardCheatSheet';
+import { CodeEditorPane } from './components/CodeEditorPane';
 
 export class LeetfoxApp {
   private rootElement: HTMLElement;
@@ -20,6 +21,7 @@ export class LeetfoxApp {
   private header!: Header;
   private progressBar: ProgressBar | null = null;
   private statementView!: StatementView;
+  private codeEditorPane!: CodeEditorPane;
   private notesDrawer!: NotesDrawer;
   private commandPalette!: CommandPalette;
   private cheatSheet!: KeyboardCheatSheet;
@@ -28,6 +30,10 @@ export class LeetfoxApp {
   private unsubscribeState: (() => void) | null = null;
   private unsubscribePrefs: (() => void) | null = null;
   private doc!: Document;
+
+  private splitContainer!: HTMLElement;
+  private editorPaneWrapper!: HTMLElement;
+  private isSplitMode = true;
 
   constructor(
     private adapter: PlatformAdapter,
@@ -46,6 +52,10 @@ export class LeetfoxApp {
   public async mount(doc: Document): Promise<void> {
     this.doc = doc;
 
+    // Eradicate any previous or duplicate Leetfox instances immediately
+    const existingApps = this.doc.querySelectorAll('#leetfox-app, #lf-floating-switcher');
+    existingApps.forEach(el => el.remove());
+
     // Build subcomponents
     this.header = new Header(
       this.problem,
@@ -57,14 +67,21 @@ export class LeetfoxApp {
         onToggleNotes: () => this.notesDrawer.toggle(),
         onToggleTheme: () => this.toggleTheme(),
         onToggleViewOriginal: () => this.toggleViewOriginal(),
+        onToggleSplitMode: () => this.toggleSplitMode(),
         onOpenPalette: () => this.commandPalette.open(),
         onOpenShortcuts: () => this.cheatSheet.open()
       }
     );
 
     const main = createElement('main', { className: 'lf-main' });
+
+    // Parallel Split Workspace Container (LeetCode style)
+    this.splitContainer = createElement('div', { className: 'lf-split-container' });
+
+    // Left Pane: Problem Description, Tags, Examples
+    const leftPane = createElement('div', { className: 'lf-split-left' });
     const metadataBar = new MetadataBar(this.problem);
-    main.appendChild(metadataBar.getElement());
+    leftPane.appendChild(metadataBar.getElement());
 
     // Category progress for CSES or any platform supporting it
     if (this.adapter.getCategoryProgress) {
@@ -72,12 +89,21 @@ export class LeetfoxApp {
       const progress = this.adapter.getCategoryProgress(doc, allStates);
       if (progress) {
         this.progressBar = new ProgressBar(progress);
-        main.appendChild(this.progressBar.getElement());
+        leftPane.appendChild(this.progressBar.getElement());
       }
     }
 
     this.statementView = new StatementView(this.problem, this.prefs.autoCopyExampleOnClick);
-    main.appendChild(this.statementView.getElement());
+    leftPane.appendChild(this.statementView.getElement());
+
+    // Right Pane: Modern Code Editor Box
+    this.editorPaneWrapper = createElement('div', { className: 'lf-split-right' });
+    this.codeEditorPane = new CodeEditorPane(this.problem);
+    this.editorPaneWrapper.appendChild(this.codeEditorPane.getElement());
+
+    this.splitContainer.appendChild(leftPane);
+    this.splitContainer.appendChild(this.editorPaneWrapper);
+    main.appendChild(this.splitContainer);
 
     // Modals and Drawers
     this.notesDrawer = new NotesDrawer(
@@ -100,7 +126,7 @@ export class LeetfoxApp {
     this.rootElement.appendChild(this.commandPalette.getElement());
     this.rootElement.appendChild(this.cheatSheet.getElement());
 
-    // Mount to document.body for clean, full-page rendering without host CSS constraints
+    // Mount to document.body for clean, full-page rendering
     doc.body.appendChild(this.rootElement);
 
     // Floating switcher pill shown when viewing the original site
@@ -131,6 +157,17 @@ export class LeetfoxApp {
 
     // Typeset math (KaTeX / MathJax) if available on host page
     this.statementView.typesetMath();
+  }
+
+  public toggleSplitMode(): void {
+    this.isSplitMode = !this.isSplitMode;
+    if (this.isSplitMode) {
+      this.splitContainer.classList.remove('lf-full-statement');
+      this.editorPaneWrapper.style.display = 'flex';
+    } else {
+      this.splitContainer.classList.add('lf-full-statement');
+      this.editorPaneWrapper.style.display = 'none';
+    }
   }
 
   public isAnyModalOpen(): boolean {
@@ -181,6 +218,13 @@ export class LeetfoxApp {
         run: () => this.navigatePrevious()
       });
     }
+
+    commands.push({
+      id: 'toggle-split',
+      title: this.isSplitMode ? 'Switch to Full Statement View' : 'Switch to Parallel Split View',
+      category: 'View',
+      run: () => this.toggleSplitMode()
+    });
 
     commands.push({
       id: 'toggle-solved',

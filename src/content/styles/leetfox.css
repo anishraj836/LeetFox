@@ -935,3 +935,217 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
 #lf-floating-switcher:hover {
   transform: scale(1.05) !important;
 }
+
+/* ==========================================================================
+   LeetCode-Style Parallel Split Workspace & Code Editor
+   ========================================================================== */
+
+.lf-main {
+  max-width: 1600px !important;
+  margin: 0 auto !important;
+  padding: 20px 24px 80px !important;
+  width: 100% !important;
+}
+
+.lf-split-container {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) !important;
+  gap: 20px !important;
+  width: 100% !important;
+  align-items: start !important;
+}
+
+.lf-split-container.lf-full-statement {
+  grid-template-columns: minmax(0, 1fr) !important;
+  max-width: 1050px !important;
+  margin: 0 auto !important;
+}
+
+@media (max-width: 1024px) {
+  .lf-split-container {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+.lf-split-left {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.lf-split-right {
+  min-width: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  position: sticky !important;
+  top: 64px !important;
+}
+
+/* Code Editor Pane */
+.lf-code-pane {
+  background-color: var(--lf-bg-surface) !important;
+  border: 1px solid var(--lf-border) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-shadow: var(--lf-shadow-sm) !important;
+  width: 100% !important;
+}
+
+.lf-editor-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 8px 14px !important;
+  border-bottom: 1px solid var(--lf-border) !important;
+  background-color: var(--lf-bg-card) !important;
+  gap: 12px !important;
+}
+
+.lf-editor-tools-left,
+.lf-editor-tools-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.lf-lang-select {
+  background-color: var(--lf-bg-surface) !important;
+  color: var(--lf-text-main) !important;
+  border: 1px solid var(--lf-border) !important;
+  border-radius: 6px !important;
+  padding: 5px 10px !important;
+  font-size: 13px !important;
+  font-family: var(--lf-font-sans) !important;
+  font-weight: 500 !important;
+  outline: none !important;
+  cursor: pointer !important;
+}
+
+.lf-editor-wrapper {
+  display: flex !important;
+  min-height: 420px !important;
+  max-height: 580px !important;
+  background-color: var(--lf-code-bg) !important;
+  font-family: var(--lf-font-mono) !important;
+  border-bottom: 1px solid var(--lf-border) !important;
+  position: relative !important;
+}
+
+.lf-line-numbers {
+  padding: 12px 10px !important;
+  color: var(--lf-text-muted) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  font-family: var(--lf-font-mono) !important;
+  text-align: right !important;
+  user-select: none !important;
+  border-right: 1px solid var(--lf-code-border) !important;
+  white-space: pre !important;
+  overflow: hidden !important;
+  min-width: 42px !important;
+  background-color: rgba(0, 0, 0, 0.15) !important;
+}
+
+.lf-editor-textarea {
+  flex: 1 !important;
+  padding: 12px 14px !important;
+  font-family: var(--lf-font-mono) !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  background: transparent !important;
+  color: var(--lf-text-main) !important;
+  border: none !important;
+  outline: none !important;
+  resize: none !important;
+  white-space: pre !important;
+  overflow: auto !important;
+  tab-size: 4 !important;
+  width: 100% !important;
+}
+
+/* Testcase Console Card */
+.lf-console-card {
+  background-color: var(--lf-bg-surface) !important;
+  border-top: 1px solid var(--lf-border) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.lf-console-header {
+  padding: 8px 14px !important;
+  border-bottom: 1px solid var(--lf-border) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  background-color: var(--lf-bg-card) !important;
+}
+
+.lf-console-title {
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  color: var(--lf-text-secondary) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.lf-console-tabs {
+  display: flex !important;
+  gap: 6px !important;
+}
+
+.lf-console-tab {
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  background-color: var(--lf-bg-surface) !important;
+  color: var(--lf-text-secondary) !important;
+  border: 1px solid var(--lf-border) !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+}
+
+.lf-console-tab.active {
+  background-color: var(--lf-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--lf-accent) !important;
+}
+
+.lf-console-body {
+  padding: 12px 14px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 10px !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+}
+
+.lf-console-io-block {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.lf-console-io-title {
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: var(--lf-text-muted) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+}
+
+.lf-console-pre {
+  background-color: var(--lf-code-bg) !important;
+  padding: 6px 10px !important;
+  border-radius: 4px !important;
+  border: 1px solid var(--lf-code-border) !important;
+  font-family: var(--lf-font-mono) !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: var(--lf-text-main) !important;
+  margin: 0 !important;
+  white-space: pre-wrap !important;
+}
