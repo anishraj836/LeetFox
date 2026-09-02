@@ -553,3 +553,94 @@ describe('Live Contest Protection & Solutions Button', () => {
     app.destroy();
   });
 });
+
+import { SubmissionManager } from '../src/core/submission/SubmissionManager';
+
+describe('Submission Automation & CSES Submit Page Integration', () => {
+  it('manages pending submissions across pages', async () => {
+    const subManager = SubmissionManager.getInstance();
+    await subManager.setPendingSubmission({
+      platform: 'cses',
+      problemId: '1068',
+      language: 'cpp',
+      code: '#include <iostream>\nint main(){ return 0; }',
+      timestamp: Date.now()
+    });
+
+    const pending = await subManager.getPendingSubmission();
+    expect(pending).not.toBeNull();
+    expect(pending?.problemId).toBe('1068');
+    expect(pending?.code).toContain('int main');
+
+    await subManager.clearPendingSubmission();
+    const cleared = await subManager.getPendingSubmission();
+    expect(cleared).toBeNull();
+  });
+
+  it('auto-attaches solution and injects confirmation banner on CSES submit page', async () => {
+    const subManager = SubmissionManager.getInstance();
+    await subManager.setPendingSubmission({
+      platform: 'cses',
+      problemId: '1068',
+      language: 'cpp',
+      code: 'int main() { std::cout << 42; }',
+      timestamp: Date.now()
+    });
+
+    const csesSubmitHtml = `
+      <html><body>
+        <div class="content">
+          <form method="post" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="abc123token">
+            <input type="file" name="file">
+            <input type="submit" value="Submit">
+          </form>
+        </div>
+      </body></html>
+    `;
+
+    const dom = new JSDOM(csesSubmitHtml, { url: 'https://cses.fi/problemset/submit/1068/' });
+    const handled = await subManager.handleCSESSubmitPage(dom.window.document, new URL('https://cses.fi/problemset/submit/1068/'));
+
+    expect(handled).toBe(true);
+    const banner = dom.window.document.getElementById('lf-cses-submit-banner');
+    expect(banner).not.toBeNull();
+    expect(banner?.textContent).toContain('Leetfox ready to submit for Task 1068');
+    expect(banner?.textContent).toContain('Attached solution.cpp');
+  });
+
+  it('auto-fills problem and source code on Codeforces submit page', async () => {
+    const subManager = SubmissionManager.getInstance();
+    await subManager.setPendingSubmission({
+      platform: 'codeforces',
+      problemId: '4A',
+      language: 'cpp',
+      code: '#include <iostream>\nint main() {}',
+      timestamp: Date.now()
+    });
+
+    const cfSubmitHtml = `
+      <html><body>
+        <form class="submitForm" action="/contest/4/submit" method="post">
+          <input name="submittedProblemCode" value="">
+          <textarea id="sourceCodeTextarea" name="source"></textarea>
+          <input type="submit" value="Submit">
+        </form>
+      </body></html>
+    `;
+
+    const dom = new JSDOM(cfSubmitHtml, { url: 'https://codeforces.com/contest/4/submit' });
+    const handled = await subManager.handleCodeforcesSubmitPage(dom.window.document, new URL('https://codeforces.com/contest/4/submit'));
+
+    expect(handled).toBe(true);
+    const problemInput = dom.window.document.querySelector('input[name="submittedProblemCode"]') as HTMLInputElement;
+    expect(problemInput.value).toBe('4A');
+
+    const textarea = dom.window.document.querySelector('textarea#sourceCodeTextarea') as HTMLTextAreaElement;
+    expect(textarea.value).toContain('#include <iostream>');
+
+    const banner = dom.window.document.getElementById('lf-cf-submit-banner');
+    expect(banner).not.toBeNull();
+    expect(banner?.textContent).toContain('Leetfox loaded your solution for 4A');
+  });
+});

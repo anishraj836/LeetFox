@@ -1,3 +1,4 @@
+import { SubmissionManager } from '../core/submission/SubmissionManager';
 import './styles/leetfox.css';
 
 import { PlatformRegistry } from '../core/platform/PlatformRegistry';
@@ -24,6 +25,17 @@ async function bootstrap(): Promise<void> {
     const currentUrlStr = window.location.href;
     const currentUrl = new URL(currentUrlStr);
     const normalizedUrl = currentUrl.origin + currentUrl.pathname;
+
+    // Handle submit pages for CSES and Codeforces
+    const subManager = SubmissionManager.getInstance();
+    if (currentUrl.hostname.includes('cses.fi') && currentUrl.pathname.includes('/submit/')) {
+      const handled = await subManager.handleCSESSubmitPage(document, currentUrl);
+      if (handled) return;
+    }
+    if (currentUrl.hostname.includes('codeforces.com') && currentUrl.pathname.includes('/submit')) {
+      const handled = await subManager.handleCodeforcesSubmitPage(document, currentUrl);
+      if (handled) return;
+    }
 
     // Check if already cleanly mounted for this problem URL
     if (normalizedUrl === lastProcessedUrl && document.getElementById('leetfox-app')) {

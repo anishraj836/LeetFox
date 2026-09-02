@@ -1,3 +1,4 @@
+import { SubmissionManager } from '../../core/submission/SubmissionManager';
 import type { Problem } from '../../core/models/problem';
 import { createElement, copyToClipboard } from '../../core/utils/dom';
 import { StorageManager } from '../../core/storage/StorageManager';
@@ -180,7 +181,43 @@ export class CodeEditorPane {
       className: 'lf-btn lf-btn-primary',
       type: 'button',
       title: 'Submit solution on platform',
-      onClick: () => {
+      onClick: async () => {
+        const code = this.editorTextarea.value.trim();
+        if (!code) {
+          alert('Please write some code before submitting.');
+          return;
+        }
+
+        const subManager = SubmissionManager.getInstance();
+        await subManager.setPendingSubmission({
+          platform: this.problem.platform,
+          problemId: this.problem.id,
+          language: this.currentLanguage,
+          code: this.editorTextarea.value,
+          timestamp: Date.now()
+        });
+
+        submitBtn.textContent = '⏳ Submitting...';
+        submitBtn.disabled = true;
+
+        if (this.problem.platform === 'cses') {
+          const res = await subManager.submitCSESDirect(this.problem.id, this.editorTextarea.value, this.currentLanguage);
+          if (res.success && res.resultUrl) {
+            submitBtn.textContent = '✓ Submitted!';
+            setTimeout(() => {
+              window.location.href = res.resultUrl!;
+            }, 500);
+            return;
+          } else {
+            console.warn('[Leetfox] Direct CSES submission failed, redirecting to submit page with auto-fill', res.error);
+            if (this.problem.submitUrl) {
+              window.location.href = this.problem.submitUrl;
+              return;
+            }
+          }
+        }
+
+        // Default / Codeforces flow: Navigate to submit page with auto-fill pending
         if (this.problem.submitUrl) {
           window.location.href = this.problem.submitUrl;
         } else {

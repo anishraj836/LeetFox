@@ -1173,3 +1173,46 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   border-color: var(--lf-accent) !important;
   background-color: var(--lf-accent-light) !important;
 }
+
+/* ==========================================================================
+   Submit Page Leetfox Banner (CSES & Codeforces)
+   ========================================================================== */
+
+.lf-submit-page-banner {
+  background: linear-gradient(135deg, var(--lf-bg-surface), var(--lf-bg-card)) !important;
+  border: 1px solid var(--lf-accent) !important;
+  border-radius: 10px !important;
+  padding: 16px 20px !important;
+  margin: 16px 0 24px 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2) !important;
+  font-family: var(--lf-font-sans) !important;
+  color: var(--lf-text-main) !important;
+}
+
+.lf-banner-icon {
+  font-size: 28px !important;
+  flex-shrink: 0 !important;
+}
+
+.lf-banner-text {
+  flex: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+}
+
+.lf-banner-text strong {
+  font-size: 15px !important;
+  color: var(--lf-text-main) !important;
+  font-weight: 700 !important;
+}
+
+.lf-banner-text p {
+  margin: 0 !important;
+  font-size: 13px !important;
+  color: var(--lf-text-secondary) !important;
+}
