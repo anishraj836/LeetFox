@@ -1,0 +1,52 @@
+{
+  "manifest_version": 3,
+  "name": "Leetfox - Modern Competitive Programming",
+  "version": "1.0.0",
+  "description": "Modern, fast, keyboard-friendly competitive programming interface for Codeforces and CSES.",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "*://codeforces.com/*",
+    "*://*.codeforces.com/*",
+    "*://cses.fi/*",
+    "*://*.cses.fi/*"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://codeforces.com/*",
+        "*://*.codeforces.com/*",
+        "*://cses.fi/*",
+        "*://*.cses.fi/*"
+      ],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    },
+    "default_title": "Leetfox",
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "leetfox@developer.local",
+      "strict_min_version": "109.0"
+    }
+  }
+}

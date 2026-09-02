@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Leetfox</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="lf-popup">
+    <div class="lf-popup-header">
+      <div class="lf-popup-brand">
+        <span class="lf-popup-logo">🦊</span>
+        <div>
+          <h2 class="lf-popup-title">Leetfox</h2>
+          <span class="lf-popup-version">v1.0.0</span>
+        </div>
+      </div>
+      <span class="lf-status-pill">Active</span>
+    </div>
+
+    <div class="lf-popup-section">
+      <div class="lf-setting-row">
+        <span>Dark Theme</span>
+        <input type="checkbox" id="theme-toggle" class="lf-toggle">
+      </div>
+    </div>
+
+    <div class="lf-popup-section">
+      <div class="lf-section-title">Solved Statistics</div>
+      <div class="lf-stats-grid">
+        <div class="lf-stat-box">
+          <div class="lf-stat-count" id="cf-solved-count">0</div>
+          <div class="lf-stat-label">Codeforces</div>
+        </div>
+        <div class="lf-stat-box">
+          <div class="lf-stat-count" id="cses-solved-count">0</div>
+          <div class="lf-stat-label">CSES</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="lf-popup-section">
+      <div class="lf-section-title">Quick Links</div>
+      <div class="lf-links-grid">
+        <a href="https://codeforces.com/problemset" target="_blank" class="lf-link-btn">
+          Codeforces Problemset ↗
+        </a>
+        <a href="https://cses.fi/problemset/list/" target="_blank" class="lf-link-btn">
+          CSES Problem Set ↗
+        </a>
+      </div>
+    </div>
+
+    <div class="lf-popup-footer">
+      <span>Press <kbd>⌘K</kbd> on any problem page</span>
+    </div>
+  </div>
+  <script type="module" src="popup.ts"></script>
+</body>
+</html>

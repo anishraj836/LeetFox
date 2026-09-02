@@ -1,0 +1,25 @@
+{
+  "name": "leetfox",
+  "version": "1.0.0",
+  "description": "Modern Competitive Programming Browser Extension for Firefox",
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch --mode development",
+    "build": "tsc --noEmit && node build.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/dompurify": "^3.0.5",
+    "@types/jsdom": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "@types/webextension-polyfill": "^0.10.7",
+    "dompurify": "^3.2.4",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.7.3",
+    "vite": "^6.1.0",
+    "vitest": "^3.0.5",
+    "webextension-polyfill": "^0.12.0"
+  }
+}

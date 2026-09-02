@@ -1,0 +1,165 @@
+:root {
+  --lf-bg: #0f1117;
+  --lf-surface: #181b24;
+  --lf-card: #202431;
+  --lf-border: #2e3447;
+  --lf-text: #f1f5f9;
+  --lf-muted: #94a3b8;
+  --lf-primary: #f97316;
+  --lf-success: #10b981;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  width: 290px;
+  background-color: var(--lf-bg);
+  color: var(--lf-text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  box-sizing: border-box;
+}
+
+.lf-popup {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.lf-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--lf-border);
+}
+
+.lf-popup-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lf-popup-logo {
+  font-size: 24px;
+}
+
+.lf-popup-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--lf-text);
+  line-height: 1.1;
+}
+
+.lf-popup-version {
+  font-size: 10px;
+  color: var(--lf-muted);
+}
+
+.lf-status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  background-color: rgba(16, 185, 129, 0.15);
+  color: var(--lf-success);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.lf-popup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lf-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--lf-muted);
+  font-weight: 600;
+}
+
+.lf-setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: var(--lf-surface);
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--lf-border);
+}
+
+.lf-toggle {
+  cursor: pointer;
+}
+
+.lf-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.lf-stat-box {
+  background-color: var(--lf-surface);
+  border: 1px solid var(--lf-border);
+  border-radius: 6px;
+  padding: 10px;
+  text-align: center;
+}
+
+.lf-stat-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--lf-primary);
+}
+
+.lf-stat-label {
+  font-size: 11px;
+  color: var(--lf-muted);
+  margin-top: 2px;
+}
+
+.lf-links-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lf-link-btn {
+  display: block;
+  background-color: var(--lf-surface);
+  border: 1px solid var(--lf-border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  color: var(--lf-text);
+  text-decoration: none;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.lf-link-btn:hover {
+  background-color: var(--lf-card);
+  border-color: var(--lf-primary);
+  color: var(--lf-primary);
+}
+
+.lf-popup-footer {
+  text-align: center;
+  font-size: 11px;
+  color: var(--lf-muted);
+  padding-top: 8px;
+  border-top: 1px solid var(--lf-border);
+}
+
+kbd {
+  background-color: var(--lf-card);
+  border: 1px solid var(--lf-border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: monospace;
+  font-size: 10px;
+  color: var(--lf-text);
+}

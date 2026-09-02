@@ -1,0 +1,779 @@
+/* Leetfox Modern Competitive Programming Design System */
+
+:root, [data-lf-theme="dark"] {
+  --lf-bg-base: #0f1117;
+  --lf-bg-surface: #181b24;
+  --lf-bg-card: #202431;
+  --lf-bg-hover: #2a2f40;
+  --lf-bg-active: #353b50;
+  
+  --lf-border: #2e3447;
+  --lf-border-subtle: #242938;
+  --lf-border-focus: #6366f1;
+
+  --lf-text-main: #f1f5f9;
+  --lf-text-secondary: #94a3b8;
+  --lf-text-muted: #64748b;
+
+  --lf-primary: #f97316;
+  --lf-primary-hover: #ea580c;
+  --lf-primary-light: rgba(249, 115, 22, 0.15);
+
+  --lf-accent: #6366f1;
+  --lf-accent-hover: #4f46e5;
+  --lf-accent-light: rgba(99, 102, 241, 0.15);
+
+  --lf-success: #10b981;
+  --lf-success-light: rgba(16, 185, 129, 0.15);
+  --lf-warning: #f59e0b;
+  --lf-warning-light: rgba(245, 158, 11, 0.15);
+  --lf-danger: #ef4444;
+
+  --lf-code-bg: #141720;
+  --lf-code-border: #262b3a;
+
+  --lf-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --lf-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
+  --lf-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
+
+  --lf-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --lf-font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+[data-lf-theme="light"] {
+  --lf-bg-base: #f8fafc;
+  --lf-bg-surface: #ffffff;
+  --lf-bg-card: #f1f5f9;
+  --lf-bg-hover: #e2e8f0;
+  --lf-bg-active: #cbd5e1;
+
+  --lf-border: #e2e8f0;
+  --lf-border-subtle: #edf2f7;
+  --lf-border-focus: #4f46e5;
+
+  --lf-text-main: #0f172a;
+  --lf-text-secondary: #475569;
+  --lf-text-muted: #94a3b8;
+
+  --lf-primary: #ea580c;
+  --lf-primary-hover: #c2410c;
+  --lf-primary-light: rgba(234, 88, 12, 0.1);
+
+  --lf-accent: #4f46e5;
+  --lf-accent-hover: #4338ca;
+  --lf-accent-light: rgba(79, 70, 229, 0.1);
+
+  --lf-success: #059669;
+  --lf-success-light: rgba(5, 150, 105, 0.1);
+  --lf-warning: #d97706;
+  --lf-warning-light: rgba(217, 119, 6, 0.1);
+  --lf-danger: #dc2626;
+
+  --lf-code-bg: #f8fafc;
+  --lf-code-border: #e2e8f0;
+
+  --lf-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --lf-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  --lf-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Master Leetfox Container */
+#leetfox-app {
+  font-family: var(--lf-font-sans);
+  color: var(--lf-text-main);
+  background-color: var(--lf-bg-base);
+  min-height: 100vh;
+  box-sizing: border-box;
+  line-height: 1.6;
+  font-size: 15px;
+  -webkit-font-smoothing: antialiased;
+}
+
+#leetfox-app * {
+  box-sizing: border-box;
+}
+
+/* Top Sticky Header */
+.lf-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background-color: var(--lf-bg-surface);
+  border-bottom: 1px solid var(--lf-border);
+  box-shadow: var(--lf-shadow-sm);
+  padding: 10px 24px;
+}
+
+.lf-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.lf-brand-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.lf-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--lf-primary);
+  text-decoration: none;
+  letter-spacing: -0.02em;
+}
+
+.lf-platform-badge {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background-color: var(--lf-bg-card);
+  color: var(--lf-text-secondary);
+  border: 1px solid var(--lf-border);
+}
+
+.lf-header-title-container {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.lf-header-id {
+  font-family: var(--lf-font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--lf-accent);
+}
+
+.lf-header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--lf-text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+.lf-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Common Button Styles */
+.lf-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 6px;
+  border: 1px solid var(--lf-border);
+  background-color: var(--lf-bg-card);
+  color: var(--lf-text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.lf-btn:hover {
+  background-color: var(--lf-bg-hover);
+  border-color: var(--lf-border-focus);
+}
+
+.lf-btn-icon {
+  padding: 6px;
+  min-width: 32px;
+  height: 32px;
+  justify-content: center;
+}
+
+.lf-btn-solved.active {
+  background-color: var(--lf-success-light);
+  border-color: var(--lf-success);
+  color: var(--lf-success);
+}
+
+.lf-btn-bookmark.active {
+  background-color: var(--lf-warning-light);
+  border-color: var(--lf-warning);
+  color: var(--lf-warning);
+}
+
+.lf-btn-notes.active {
+  background-color: var(--lf-accent-light);
+  border-color: var(--lf-accent);
+  color: var(--lf-accent);
+}
+
+.lf-btn-primary {
+  background-color: var(--lf-primary);
+  border-color: var(--lf-primary);
+  color: #ffffff;
+}
+
+.lf-btn-primary:hover {
+  background-color: var(--lf-primary-hover);
+}
+
+.lf-nav-group {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--lf-border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.lf-nav-btn {
+  background-color: var(--lf-bg-card);
+  color: var(--lf-text-main);
+  border: none;
+  border-right: 1px solid var(--lf-border);
+  padding: 6px 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.lf-nav-btn:last-child {
+  border-right: none;
+}
+
+.lf-nav-btn:hover:not(.disabled) {
+  background-color: var(--lf-bg-hover);
+}
+
+.lf-nav-btn.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Main Problem Content Layout */
+.lf-main {
+  max-width: 1050px;
+  margin: 0 auto;
+  padding: 28px 24px 80px;
+}
+
+/* Problem Metadata Bar */
+.lf-metadata-card {
+  background-color: var(--lf-bg-surface);
+  border: 1px solid var(--lf-border);
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  box-shadow: var(--lf-shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lf-metadata-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.lf-problem-title-large {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--lf-text-main);
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.lf-problem-id-badge {
+  font-family: var(--lf-font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--lf-primary);
+  background-color: var(--lf-primary-light);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.lf-specs-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.lf-spec-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-family: var(--lf-font-mono);
+  background-color: var(--lf-bg-card);
+  border: 1px solid var(--lf-border);
+  padding: 4px 10px;
+  border-radius: 5px;
+  color: var(--lf-text-secondary);
+}
+
+.lf-spec-badge.difficulty {
+  color: #eab308;
+  border-color: rgba(234, 179, 8, 0.3);
+  background-color: rgba(234, 179, 8, 0.1);
+  font-weight: 600;
+}
+
+.lf-tags-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.lf-tag-pill {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background-color: var(--lf-bg-card);
+  color: var(--lf-text-muted);
+  border: 1px solid var(--lf-border);
+}
+
+/* Category Progress Card (CSES) */
+.lf-progress-card {
+  background-color: var(--lf-bg-surface);
+  border: 1px solid var(--lf-border);
+  border-radius: 8px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  box-shadow: var(--lf-shadow-sm);
+}
+
+.lf-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.lf-progress-title {
+  font-weight: 600;
+  color: var(--lf-text-main);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lf-progress-count {
+  font-family: var(--lf-font-mono);
+  font-weight: 600;
+  color: var(--lf-success);
+}
+
+.lf-progress-bar-bg {
+  width: 100%;
+  height: 8px;
+  background-color: var(--lf-bg-card);
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--lf-border);
+}
+
+.lf-progress-bar-fill {
+  height: 100%;
+  background-color: var(--lf-success);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Problem Statement Sections */
+.lf-card {
+  background-color: var(--lf-bg-surface);
+  border: 1px solid var(--lf-border);
+  border-radius: 8px;
+  padding: 24px;
+  margin-bottom: 24px;
+  box-shadow: var(--lf-shadow-sm);
+}
+
+.lf-section-header {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--lf-text-main);
+  margin: 0 0 14px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
+.lf-statement-body {
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--lf-text-main);
+}
+
+.lf-statement-body p {
+  margin: 0 0 14px 0;
+}
+
+.lf-statement-body p:last-child {
+  margin-bottom: 0;
+}
+
+.lf-statement-body ul, .lf-statement-body ol {
+  margin: 0 0 14px 20px;
+  padding: 0;
+}
+
+.lf-statement-body li {
+  margin-bottom: 6px;
+}
+
+/* MathJax & KaTeX styling integration */
+.lf-statement-body .math, .lf-statement-body .katex, .lf-statement-body .tex-span {
+  font-size: 1.05em;
+}
+
+.lf-statement-body pre, .lf-statement-body code {
+  font-family: var(--lf-font-mono);
+}
+
+.lf-statement-body code {
+  background-color: var(--lf-code-bg);
+  border: 1px solid var(--lf-code-border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+
+/* Example Cards */
+.lf-example-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.lf-example-card {
+  background-color: var(--lf-bg-card);
+  border: 1px solid var(--lf-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lf-example-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  background-color: var(--lf-bg-surface);
+  border-bottom: 1px solid var(--lf-border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--lf-text-secondary);
+}
+
+.lf-example-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  divide-x: 1px solid var(--lf-border);
+}
+
+@media (max-width: 768px) {
+  .lf-example-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.lf-example-pane {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.lf-example-pane:first-child {
+  border-right: 1px solid var(--lf-border);
+}
+
+@media (max-width: 768px) {
+  .lf-example-pane:first-child {
+    border-right: none;
+    border-bottom: 1px solid var(--lf-border);
+  }
+}
+
+.lf-example-pane-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--lf-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.lf-example-copy-btn {
+  background: none;
+  border: 1px solid var(--lf-border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  color: var(--lf-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.lf-example-copy-btn:hover {
+  background-color: var(--lf-bg-hover);
+  color: var(--lf-text-main);
+  border-color: var(--lf-accent);
+}
+
+.lf-example-pre {
+  margin: 0;
+  padding: 10px 12px;
+  background-color: var(--lf-code-bg);
+  border: 1px solid var(--lf-code-border);
+  border-radius: 6px;
+  font-family: var(--lf-font-mono);
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--lf-text-main);
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 320px;
+}
+
+/* Notes Drawer */
+.lf-notes-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 200;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.lf-notes-drawer {
+  width: 480px;
+  max-width: 90vw;
+  height: 100%;
+  background-color: var(--lf-bg-surface);
+  border-left: 1px solid var(--lf-border);
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--lf-shadow-lg);
+}
+
+.lf-notes-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--lf-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lf-notes-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--lf-text-main);
+}
+
+.lf-notes-status {
+  font-size: 12px;
+  color: var(--lf-text-muted);
+}
+
+.lf-notes-body {
+  flex: 1;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.lf-notes-textarea {
+  flex: 1;
+  width: 100%;
+  background-color: var(--lf-bg-card);
+  border: 1px solid var(--lf-border);
+  border-radius: 6px;
+  padding: 14px;
+  font-family: var(--lf-font-mono);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--lf-text-main);
+  resize: none;
+  outline: none;
+}
+
+.lf-notes-textarea:focus {
+  border-color: var(--lf-border-focus);
+}
+
+/* Command Palette */
+.lf-palette-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(3px);
+  z-index: 300;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 15vh;
+}
+
+.lf-palette-modal {
+  width: 580px;
+  max-width: 92vw;
+  background-color: var(--lf-bg-surface);
+  border: 1px solid var(--lf-border);
+  border-radius: 12px;
+  box-shadow: var(--lf-shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.lf-palette-input-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--lf-border);
+  gap: 12px;
+}
+
+.lf-palette-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  font-size: 16px;
+  font-family: var(--lf-font-sans);
+  color: var(--lf-text-main);
+}
+
+.lf-palette-list {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 8px;
+  margin: 0;
+  list-style: none;
+}
+
+.lf-palette-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--lf-text-main);
+  transition: background-color 0.1s;
+}
+
+.lf-palette-item.active {
+  background-color: var(--lf-bg-hover);
+}
+
+.lf-palette-item-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lf-palette-shortcut {
+  font-family: var(--lf-font-mono);
+  font-size: 11px;
+  background-color: var(--lf-bg-card);
+  border: 1px solid var(--lf-border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--lf-text-secondary);
+}
+
+/* Keyboard Cheat Sheet Modal */
+.lf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  z-index: 250;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lf-modal-content {
+  width: 520px;
+  max-width: 90vw;
+  background-color: var(--lf-bg-surface);
+  border: 1px solid var(--lf-border);
+  border-radius: 12px;
+  box-shadow: var(--lf-shadow-lg);
+  padding: 24px;
+}
+
+.lf-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.lf-shortcuts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.lf-shortcut-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: var(--lf-bg-card);
+  border-radius: 6px;
+  border: 1px solid var(--lf-border);
+}
+
+.lf-kbd {
+  font-family: var(--lf-font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  background-color: var(--lf-bg-surface);
+  border: 1px solid var(--lf-border);
+  border-bottom-width: 2px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: var(--lf-text-main);
+}
