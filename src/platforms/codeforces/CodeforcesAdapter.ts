@@ -19,19 +19,24 @@ export class CodeforcesAdapter implements PlatformAdapter {
   }
 
   public isProblemPage(url: URL, doc?: Document): boolean {
-    if (doc) {
-      if (doc.querySelector(CODEFORCES_SELECTORS.container)) {
-        return true;
-      }
+    const path = url.pathname.toLowerCase();
+    const isProblemUrl = (
+      path.includes('/problemset/problem/') ||
+      /\/contest\/\d+\/problem\/[a-z0-9]/i.test(path) ||
+      /\/gym\/\d+\/problem\/[a-z0-9]/i.test(path) ||
+      /\/group\/[^/]+\/contest\/\d+\/problem\/[a-z0-9]/i.test(path)
+    );
+
+    // If it is not a problem URL (e.g. homepage, contests list, login /enter), return false
+    if (!isProblemUrl) {
+      return false;
     }
 
-    const path = url.pathname.toLowerCase();
-    return (
-      path.includes('/problemset/problem/') ||
-      path.includes('/problem/') ||
-      /\/contest\/\d+\/problem\/[a-z0-9]/i.test(path) ||
-      /\/gym\/\d+\/problem\/[a-z0-9]/i.test(path)
-    );
+    if (doc) {
+      return !!doc.querySelector(CODEFORCES_SELECTORS.container);
+    }
+
+    return true;
   }
 
   public parseProblem(doc: Document, url: URL): Problem | null {
@@ -39,7 +44,6 @@ export class CodeforcesAdapter implements PlatformAdapter {
   }
 
   public getOriginalContainer(doc: Document): HTMLElement | null {
-    // Return the element that Leetfox should replace / hide when active
     const content = doc.querySelector('#pageContent') as HTMLElement;
     if (content) return content;
 

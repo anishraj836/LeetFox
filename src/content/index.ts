@@ -43,19 +43,13 @@ async function bootstrap(): Promise<void> {
     }
 
     const adapter = registry.detectAdapter(currentUrl);
-    if (!adapter) {
+    if (!adapter || !adapter.isProblemPage(currentUrl, document)) {
       if (currentApp) {
         currentApp.destroy();
         currentApp = null;
       }
-      return;
-    }
-
-    if (!adapter.isProblemPage(currentUrl, document)) {
-      if (currentApp) {
-        currentApp.destroy();
-        currentApp = null;
-      }
+      document.body.classList.remove('lf-active');
+      document.querySelectorAll('#leetfox-app, #lf-floating-switcher').forEach(el => el.remove());
       return;
     }
 

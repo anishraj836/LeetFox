@@ -1,3 +1,4 @@
+import { CSESAdapter } from '../src/platforms/cses/CSESAdapter';
 import { DEFAULT_PROBLEM_STATE } from '../src/core/models/state';
 import { Header } from '../src/ui/components/Header';
 import { KeyboardCheatSheet } from '../src/ui/components/KeyboardCheatSheet';
@@ -642,5 +643,69 @@ describe('Submission Automation & CSES Submit Page Integration', () => {
     const banner = dom.window.document.getElementById('lf-cf-submit-banner');
     expect(banner).not.toBeNull();
     expect(banner?.textContent).toContain('Leetfox loaded your solution for 4A');
+  });
+});
+
+import { normalizeOutput } from '../src/core/runner/CodeRunner';
+
+describe('Homescreen Isolation, Non-Problem Pages & Code Runner', () => {
+  it('correctly distinguishes CSES problem pages from homepage, login, and courses', () => {
+    const adapter = new CSESAdapter();
+    const dom = new JSDOM('<div class="content"><div class="md">Welcome to CSES</div></div>');
+    const doc = dom.window.document;
+
+    // Homepage
+    expect(adapter.isProblemPage(new URL('https://cses.fi/'), doc)).toBe(false);
+    expect(adapter.isProblemPage(new URL('https://cses.fi/problemset/'), doc)).toBe(false);
+    // Login
+    expect(adapter.isProblemPage(new URL('https://cses.fi/login'), doc)).toBe(false);
+    // Submit
+    expect(adapter.isProblemPage(new URL('https://cses.fi/problemset/submit/1068/'), doc)).toBe(false);
+
+    // Actual Problem Task
+    expect(adapter.isProblemPage(new URL('https://cses.fi/problemset/task/1068/'), doc)).toBe(true);
+  });
+
+  it('correctly distinguishes Codeforces problem pages from homepage, contests list, and login', () => {
+    const adapter = new CodeforcesAdapter();
+    const dom = new JSDOM('<div class="problem-statement"><div class="header">A. Watermelon</div></div>');
+    const doc = dom.window.document;
+
+    // Homepage
+    expect(adapter.isProblemPage(new URL('https://codeforces.com/'), doc)).toBe(false);
+    // Contests
+    expect(adapter.isProblemPage(new URL('https://codeforces.com/contests'), doc)).toBe(false);
+    // Login
+    expect(adapter.isProblemPage(new URL('https://codeforces.com/enter'), doc)).toBe(false);
+
+    // Actual Problem Pages
+    expect(adapter.isProblemPage(new URL('https://codeforces.com/problemset/problem/4/A'), doc)).toBe(true);
+    expect(adapter.isProblemPage(new URL('https://codeforces.com/contest/4/problem/A'), doc)).toBe(true);
+  });
+
+  it('normalizes testcase outputs accurately regardless of newlines or trailing spaces', () => {
+    expect(normalizeOutput('YES\r\n')).toBe('YES');
+    expect(normalizeOutput('YES  \n')).toBe('YES');
+    expect(normalizeOutput('  1 2 3  \n  4 5 6  ')).toBe('1 2 3\n  4 5 6');
+    expect(normalizeOutput('')).toBe('');
+  });
+
+  it('renders ▶ Run button in CodeEditorPane toolbar', () => {
+    const pane = new CodeEditorPane({
+      platform: 'codeforces',
+      id: '4A',
+      qualifiedId: 'codeforces:4a',
+      title: 'Watermelon',
+      statementHtml: '<p>statement</p>',
+      examples: [{ id: 1, input: '8', output: 'YES' }],
+      tags: [],
+      limits: {},
+      navigation: {},
+      url: 'https://codeforces.com/contest/4/problem/A'
+    });
+
+    const runBtn = pane.getElement().querySelector('.lf-btn-run') as HTMLButtonElement;
+    expect(runBtn).not.toBeNull();
+    expect(runBtn.textContent).toContain('Run');
   });
 });

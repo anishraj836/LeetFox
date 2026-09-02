@@ -15,12 +15,18 @@ export class CSESAdapter implements PlatformAdapter {
   }
 
   public isProblemPage(url: URL, doc?: Document): boolean {
-    if (doc) {
-      if (doc.querySelector(CSES_SELECTORS.markdownContainer)) {
-        return true;
-      }
+    // Only /problemset/task/{id} is a problem page.
+    // Homepage (/), course list (/courses), problem list (/problemset/list),
+    // login (/login), and submit pages (/problemset/submit/*) are NEVER problem pages.
+    const isTaskUrl = /\/problemset\/task\/\d+/i.test(url.pathname);
+    if (!isTaskUrl) {
+      return false;
     }
-    return /\/problemset\/task\/\d+/i.test(url.pathname);
+
+    if (doc) {
+      return !!doc.querySelector(CSES_SELECTORS.markdownContainer);
+    }
+    return true;
   }
 
   public parseProblem(doc: Document, url: URL): Problem | null {

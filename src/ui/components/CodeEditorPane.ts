@@ -1,7 +1,8 @@
-import { SubmissionManager } from '../../core/submission/SubmissionManager';
 import type { Problem } from '../../core/models/problem';
 import { createElement, copyToClipboard } from '../../core/utils/dom';
 import { StorageManager } from '../../core/storage/StorageManager';
+import { SubmissionManager } from '../../core/submission/SubmissionManager';
+import { CodeRunner, type ExecutionResult } from '../../core/runner/CodeRunner';
 
 export interface CodeTemplate {
   name: string;
@@ -111,13 +112,18 @@ export class CodeEditorPane {
   private lineNumbers: HTMLElement;
   private testcaseTabContainer: HTMLElement;
   private testcaseBody: HTMLElement;
+  private consoleStatusBadge: HTMLElement;
   private activeExampleIndex = 0;
   private storage: StorageManager;
+  private runner: CodeRunner;
   private currentLanguage = 'cpp';
   private saveTimeout: any = null;
+  private testResults: Map<number, ExecutionResult> = new Map();
+  private isRunning = false;
 
   constructor(private problem: Problem) {
     this.storage = StorageManager.getInstance();
+    this.runner = CodeRunner.getInstance();
     this.element = createElement('div', { className: 'lf-code-pane' });
 
     // 1. Editor Toolbar
@@ -157,6 +163,7 @@ export class CodeEditorPane {
       }
     }, '📋 Copy');
 
+    // Solutions button
     let solBtn: HTMLButtonElement;
     if (this.problem.isLiveContest) {
       solBtn = createElement('button', {
@@ -177,58 +184,26 @@ export class CodeEditorPane {
       }, '💡 Solutions');
     }
 
+    // Run Code Button (LeetCode-style)
+    const runBtn = createElement('button', {
+      className: 'lf-btn lf-btn-run',
+      type: 'button',
+      title: 'Run code against example testcases',
+      onClick: () => this.runTestcases(runBtn)
+    }, '▶ Run');
+
+    // Submit Button
     const submitBtn = createElement('button', {
       className: 'lf-btn lf-btn-primary',
       type: 'button',
       title: 'Submit solution on platform',
-      onClick: async () => {
-        const code = this.editorTextarea.value.trim();
-        if (!code) {
-          alert('Please write some code before submitting.');
-          return;
-        }
-
-        const subManager = SubmissionManager.getInstance();
-        await subManager.setPendingSubmission({
-          platform: this.problem.platform,
-          problemId: this.problem.id,
-          language: this.currentLanguage,
-          code: this.editorTextarea.value,
-          timestamp: Date.now()
-        });
-
-        submitBtn.textContent = '⏳ Submitting...';
-        submitBtn.disabled = true;
-
-        if (this.problem.platform === 'cses') {
-          const res = await subManager.submitCSESDirect(this.problem.id, this.editorTextarea.value, this.currentLanguage);
-          if (res.success && res.resultUrl) {
-            submitBtn.textContent = '✓ Submitted!';
-            setTimeout(() => {
-              window.location.href = res.resultUrl!;
-            }, 500);
-            return;
-          } else {
-            console.warn('[Leetfox] Direct CSES submission failed, redirecting to submit page with auto-fill', res.error);
-            if (this.problem.submitUrl) {
-              window.location.href = this.problem.submitUrl;
-              return;
-            }
-          }
-        }
-
-        // Default / Codeforces flow: Navigate to submit page with auto-fill pending
-        if (this.problem.submitUrl) {
-          window.location.href = this.problem.submitUrl;
-        } else {
-          window.location.href = this.problem.url;
-        }
-      }
+      onClick: () => this.handleSubmission(submitBtn)
     }, '🚀 Submit');
 
     rightTools.appendChild(resetBtn);
     rightTools.appendChild(copyBtn);
     rightTools.appendChild(solBtn);
+    rightTools.appendChild(runBtn);
     rightTools.appendChild(submitBtn);
 
     toolbar.appendChild(leftTools);
@@ -253,10 +228,16 @@ export class CodeEditorPane {
     // 3. Testcase Console Pane (Examples Preview & Runner)
     const consoleCard = createElement('div', { className: 'lf-console-card' });
     const consoleHeader = createElement('div', { className: 'lf-console-header' });
+
+    const titleGroup = createElement('div', { style: 'display: flex; align-items: center; gap: 8px;' });
     const consoleTitle = createElement('span', { className: 'lf-console-title' }, '🧪 Test Cases');
+    this.consoleStatusBadge = createElement('span', { className: 'lf-console-status-badge' });
+    titleGroup.appendChild(consoleTitle);
+    titleGroup.appendChild(this.consoleStatusBadge);
+
     this.testcaseTabContainer = createElement('div', { className: 'lf-console-tabs' });
 
-    consoleHeader.appendChild(consoleTitle);
+    consoleHeader.appendChild(titleGroup);
     consoleHeader.appendChild(this.testcaseTabContainer);
     consoleCard.appendChild(consoleHeader);
 
@@ -265,12 +246,171 @@ export class CodeEditorPane {
     this.element.appendChild(consoleCard);
 
     // Set initial default template synchronously
-    this.editorTextarea.value = SUPPORTED_LANGUAGES[this.currentLanguage]?.defaultCode || "";
+    this.editorTextarea.value = SUPPORTED_LANGUAGES[this.currentLanguage]?.defaultCode || '';
     this.updateLineNumbers();
 
     // Load preferred language and saved code asynchronously
     this.initLanguageAndCode();
     this.renderTestcaseTabs();
+  }
+
+  public async runTestcases(runBtn: HTMLButtonElement): Promise<void> {
+    if (this.isRunning) return;
+    const code = this.editorTextarea.value.trim();
+    if (!code) {
+      alert('Please write code before running tests.');
+      return;
+    }
+
+    const examples = this.problem.examples || [];
+    if (examples.length === 0) {
+      alert('No example test cases found to run for this problem.');
+      return;
+    }
+
+    this.isRunning = true;
+    runBtn.disabled = true;
+    runBtn.textContent = '⏳ Running...';
+    this.consoleStatusBadge.className = 'lf-console-status-badge running';
+    this.consoleStatusBadge.textContent = 'Running tests...';
+
+    try {
+      // Run the currently active testcase first
+      const currentEx = examples[this.activeExampleIndex] || examples[0];
+      const result = await this.runner.runTestcase(
+        this.currentLanguage,
+        code,
+        currentEx.input,
+        currentEx.output
+      );
+
+      this.testResults.set(this.activeExampleIndex, result);
+      this.updateStatusBadge(result);
+      this.renderTestcaseTabs();
+    } catch (err: any) {
+      this.consoleStatusBadge.className = 'lf-console-status-badge error';
+      this.consoleStatusBadge.textContent = 'Error executing code';
+    } finally {
+      this.isRunning = false;
+      runBtn.disabled = false;
+      runBtn.textContent = '▶ Run';
+    }
+  }
+
+  private updateStatusBadge(result: ExecutionResult): void {
+    if (result.status === 'accepted') {
+      this.consoleStatusBadge.className = 'lf-console-status-badge accepted';
+      this.consoleStatusBadge.textContent = `✓ Accepted (${result.executionTimeMs || 0}ms)`;
+    } else if (result.status === 'wrong_answer') {
+      this.consoleStatusBadge.className = 'lf-console-status-badge wrong-answer';
+      this.consoleStatusBadge.textContent = '✕ Wrong Answer';
+    } else if (result.status === 'compile_error') {
+      this.consoleStatusBadge.className = 'lf-console-status-badge compile-error';
+      this.consoleStatusBadge.textContent = '⚠️ Compilation Error';
+    } else if (result.status === 'runtime_error') {
+      this.consoleStatusBadge.className = 'lf-console-status-badge error';
+      this.consoleStatusBadge.textContent = '⚠️ Runtime Error';
+    } else if (result.status === 'timeout') {
+      this.consoleStatusBadge.className = 'lf-console-status-badge error';
+      this.consoleStatusBadge.textContent = '⏱️ Time Limit Exceeded';
+    } else {
+      this.consoleStatusBadge.className = 'lf-console-status-badge error';
+      this.consoleStatusBadge.textContent = 'Execution Failed';
+    }
+  }
+
+  private async handleSubmission(submitBtn: HTMLButtonElement): Promise<void> {
+    const code = this.editorTextarea.value.trim();
+    if (!code) {
+      alert('Please write some code before submitting.');
+      return;
+    }
+
+    const subManager = SubmissionManager.getInstance();
+    await subManager.setPendingSubmission({
+      platform: this.problem.platform,
+      problemId: this.problem.id,
+      language: this.currentLanguage,
+      code: this.editorTextarea.value,
+      timestamp: Date.now()
+    });
+
+    submitBtn.textContent = '⏳ Submitting...';
+    submitBtn.disabled = true;
+
+    if (this.problem.platform === 'cses') {
+      const res = await subManager.submitCSESDirect(this.problem.id, this.editorTextarea.value, this.currentLanguage);
+      if (res.success && res.resultUrl) {
+        submitBtn.textContent = '✓ Submitted!';
+        setTimeout(() => {
+          window.location.href = res.resultUrl!;
+        }, 500);
+        return;
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🚀 Submit';
+
+        // Check if user is not logged in
+        if (res.error && res.error.includes('logged in')) {
+          this.showNotLoggedInModal();
+          return;
+        }
+
+        // Direct failed for other reasons, navigate to submit page with pending auto-fill
+        if (this.problem.submitUrl) {
+          window.location.href = this.problem.submitUrl;
+          return;
+        }
+      }
+    }
+
+    // Codeforces flow: Navigate to submit page with auto-fill pending
+    if (this.problem.submitUrl) {
+      window.location.href = this.problem.submitUrl;
+    } else {
+      window.location.href = this.problem.url;
+    }
+  }
+
+  private showNotLoggedInModal(): void {
+    const existing = document.getElementById('lf-auth-warning-modal');
+    if (existing) existing.remove();
+
+    const overlay = createElement('div', {
+      id: 'lf-auth-warning-modal',
+      className: 'lf-auth-modal-overlay'
+    });
+
+    const modal = createElement('div', { className: 'lf-auth-modal' });
+
+    const title = createElement('h3', {}, '⚠️ Log in to CSES Required');
+    const msg = createElement('p', {}, 'You must be logged into your CSES account to submit code.');
+    const hint = createElement('p', { style: 'font-size: 13px; color: var(--lf-text-muted);' }, 'Click below to open the CSES login page. Once logged in, return here and click "Submit" to send your solution instantly.');
+
+    const btnRow = createElement('div', { className: 'lf-auth-modal-actions' });
+    const loginLink = createElement('a', {
+      className: 'lf-btn lf-btn-primary',
+      href: 'https://cses.fi/login',
+      target: '_blank',
+      onClick: () => { overlay.remove(); }
+    }, 'Log In to CSES ↗');
+
+    const closeBtn = createElement('button', {
+      className: 'lf-btn',
+      type: 'button',
+      onClick: () => overlay.remove()
+    }, 'Cancel');
+
+    btnRow.appendChild(closeBtn);
+    btnRow.appendChild(loginLink);
+
+    modal.appendChild(title);
+    modal.appendChild(msg);
+    modal.appendChild(hint);
+    modal.appendChild(btnRow);
+    overlay.appendChild(modal);
+
+    document.body.appendChild(overlay);
   }
 
   private async initLanguageAndCode(): Promise<void> {
@@ -301,7 +441,7 @@ export class CodeEditorPane {
 
     if (code === null) {
       try {
-        if (typeof window !== "undefined" && window.localStorage) {
+        if (typeof window !== 'undefined' && window.localStorage) {
           code = window.localStorage.getItem(key);
         }
       } catch (_) {}
@@ -326,7 +466,7 @@ export class CodeEditorPane {
       }
     } catch (_) {}
     try {
-      if (typeof window !== "undefined" && window.localStorage) {
+      if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(key, code);
       }
     } catch (_) {}
@@ -450,14 +590,22 @@ export class CodeEditorPane {
     }
 
     examples.forEach((_, idx) => {
+      const res = this.testResults.get(idx);
+      let statusIcon = '';
+      if (res) {
+        statusIcon = res.status === 'accepted' ? ' ✓' : ' ✕';
+      }
+
       const tab = createElement('button', {
-        className: `lf-console-tab ${idx === this.activeExampleIndex ? 'active' : ''}`,
+        className: `lf-console-tab ${idx === this.activeExampleIndex ? 'active' : ''} ${res ? res.status : ''}`,
         type: 'button',
         onClick: () => {
           this.activeExampleIndex = idx;
+          const currentRes = this.testResults.get(idx);
+          if (currentRes) this.updateStatusBadge(currentRes);
           this.renderTestcaseTabs();
         }
-      }, `Case ${idx + 1}`);
+      }, `Case ${idx + 1}${statusIcon}`);
 
       this.testcaseTabContainer.appendChild(tab);
     });
@@ -480,6 +628,32 @@ export class CodeEditorPane {
 
       this.testcaseBody.appendChild(inputBlock);
       this.testcaseBody.appendChild(outputBlock);
+
+      // If test has been run, show Program Output or Error
+      const testResult = this.testResults.get(this.activeExampleIndex);
+      if (testResult) {
+        if (testResult.programOutput) {
+          const actualBlock = createElement('div', { className: 'lf-console-io-block' });
+          const actualTitle = createElement('div', { className: 'lf-console-io-title' }, 'Your Output:');
+          const actualPre = createElement('pre', {
+            className: `lf-console-pre ${testResult.status === 'accepted' ? 'output-accepted' : 'output-wrong'}`
+          }, testResult.programOutput);
+          actualBlock.appendChild(actualTitle);
+          actualBlock.appendChild(actualPre);
+          this.testcaseBody.appendChild(actualBlock);
+        }
+
+        if (testResult.compilerError || testResult.programError) {
+          const errorBlock = createElement('div', { className: 'lf-console-io-block' });
+          const errorTitle = createElement('div', { className: 'lf-console-io-title' }, 'Diagnostics / Errors:');
+          const errorPre = createElement('pre', {
+            className: 'lf-console-pre output-error'
+          }, testResult.compilerError || testResult.programError || '');
+          errorBlock.appendChild(errorTitle);
+          errorBlock.appendChild(errorPre);
+          this.testcaseBody.appendChild(errorBlock);
+        }
+      }
     }
   }
 
