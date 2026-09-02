@@ -5,6 +5,7 @@ export class KeyboardManager {
   private actions: Map<string, ShortcutAction> = new Map();
   private boundHandler: (e: KeyboardEvent) => void;
   private isListening = false;
+  private isModalOpenFn: (() => boolean) | null = null;
 
   constructor() {
     this.boundHandler = this.handleKeyDown.bind(this);
@@ -22,6 +23,10 @@ export class KeyboardManager {
     return Array.from(this.actions.values());
   }
 
+  public setModalChecker(fn: () => boolean): void {
+    this.isModalOpenFn = fn;
+  }
+
   public start(): void {
     if (this.isListening) return;
     window.addEventListener('keydown', this.boundHandler, true); // capture phase
@@ -35,7 +40,18 @@ export class KeyboardManager {
   }
 
   private handleKeyDown(e: KeyboardEvent): void {
-    // Cmd+K or Ctrl+K opens Command Palette even if typing, unless escape is pressed
+    // 1. Escape always closes open modals/drawers/palettes
+    if (e.key === 'Escape') {
+      const escapeAction = this.actions.get('close-active-modal') || this.actions.get('escape');
+      if (escapeAction) {
+        e.preventDefault();
+        e.stopPropagation();
+        escapeAction.handler();
+        return;
+      }
+    }
+
+    // 2. Cmd+K or Ctrl+K toggles Command Palette even if typing
     const isCmdK = (e.metaKey || e.ctrlKey) && (e.key.toLowerCase() === 'k');
     if (isCmdK) {
       const paletteAction = this.actions.get('open-command-palette');
@@ -47,12 +63,17 @@ export class KeyboardManager {
       }
     }
 
-    // Never trigger ordinary single-key shortcuts while typing in editable elements
+    // 3. Never trigger ordinary single-key shortcuts while typing in editable elements
     if (isEditableElement(e.target) || isEditableElement(document.activeElement)) {
       return;
     }
 
-    // Avoid triggering when modifier keys (Ctrl, Alt, Meta) are held, unless specified
+    // 4. If an overlay/modal is active, suppress global navigation shortcuts
+    if (this.isModalOpenFn && this.isModalOpenFn()) {
+      return;
+    }
+
+    // 5. Avoid triggering when modifier keys (Ctrl, Alt, Meta) are held
     if (e.metaKey || e.ctrlKey || e.altKey) {
       return;
     }

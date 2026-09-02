@@ -64,6 +64,10 @@ export class KeyboardCheatSheet {
     });
   }
 
+  public isModalOpen(): boolean {
+    return this.isOpen;
+  }
+
   public open(): void {
     this.isOpen = true;
     this.element.style.display = 'flex';

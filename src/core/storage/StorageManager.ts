@@ -9,14 +9,44 @@ export class StorageManager {
   private memoryStore = new Map<string, any>();
   private stateListeners: Set<StateChangeListener> = new Set();
   private prefListeners: Set<PreferencesChangeListener> = new Set();
+  private lastNotifiedState = new Map<string, string>();
+  private lastNotifiedPrefs = '';
 
-  private constructor() {}
+  private constructor() {
+    this.setupStorageChangeListener();
+  }
 
   public static getInstance(): StorageManager {
     if (!StorageManager.instance) {
       StorageManager.instance = new StorageManager();
     }
     return StorageManager.instance;
+  }
+
+  private setupStorageChangeListener(): void {
+    try {
+      const onChanged =
+        (globalThis as any).browser?.storage?.onChanged ||
+        (globalThis as any).chrome?.storage?.onChanged;
+
+      if (onChanged && typeof onChanged.addListener === 'function') {
+        onChanged.addListener((changes: Record<string, any>, areaName?: string) => {
+          if (!areaName || areaName === 'local') {
+            for (const [key, change] of Object.entries(changes)) {
+              if (key.startsWith('problem:')) {
+                const newState = { ...DEFAULT_PROBLEM_STATE, ...(change.newValue || {}) };
+                this.notifyStateListeners(key, newState);
+              } else if (key === 'settings:preferences') {
+                const newPrefs = { ...DEFAULT_PREFERENCES, ...(change.newValue || {}) };
+                this.notifyPrefListeners(newPrefs);
+              }
+            }
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('[Leetfox Storage] Could not attach storage.onChanged listener', e);
+    }
   }
 
   private getStorageArea(): any {
@@ -40,7 +70,6 @@ export class StorageManager {
       if (storage) {
         let result: any;
         if (typeof storage.get === 'function') {
-          // Firefox browser.storage returns Promise, Chrome can take callback or Promise
           const res = storage.get(key);
           result = res instanceof Promise ? await res : await new Promise(r => storage.get(key, r));
         }
@@ -84,7 +113,7 @@ export class StorageManager {
       this.memoryStore.set(key, updated);
     }
 
-    // Notify listeners
+    // Notify listeners (deduplication prevents double-firing when storage.onChanged triggers)
     this.notifyStateListeners(key, updated);
     return updated;
   }
@@ -178,6 +207,12 @@ export class StorageManager {
   }
 
   private notifyStateListeners(qualifiedId: string, state: ProblemState): void {
+    const serialized = JSON.stringify(state);
+    if (this.lastNotifiedState.get(qualifiedId) === serialized) {
+      return; // Deduplicate identical notification
+    }
+    this.lastNotifiedState.set(qualifiedId, serialized);
+
     for (const listener of this.stateListeners) {
       try {
         listener(qualifiedId, state);
@@ -188,6 +223,12 @@ export class StorageManager {
   }
 
   private notifyPrefListeners(prefs: UserPreferences): void {
+    const serialized = JSON.stringify(prefs);
+    if (this.lastNotifiedPrefs === serialized) {
+      return; // Deduplicate identical notification
+    }
+    this.lastNotifiedPrefs = serialized;
+
     for (const listener of this.prefListeners) {
       try {
         listener(prefs);

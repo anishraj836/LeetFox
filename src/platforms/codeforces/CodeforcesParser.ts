@@ -10,13 +10,14 @@ export class CodeforcesParser {
     }
 
     try {
-      const urlInfo = this.extractUrlInfo(url);
+      const urlInfo = this.extractUrlInfo(url, doc);
       const title = this.extractTitle(container, urlInfo.index);
       const limits = this.extractLimits(container);
-      const statementHtml = this.extractStatementHtml(container);
-      const inputSpecificationHtml = this.extractSectionHtml(container, CODEFORCES_SELECTORS.inputSpecification);
-      const outputSpecificationHtml = this.extractSectionHtml(container, CODEFORCES_SELECTORS.outputSpecification);
-      const noteHtml = this.extractSectionHtml(container, CODEFORCES_SELECTORS.note);
+      const statementHtml = this.extractStatementHtml(container, doc.baseURI || url.href);
+      const inputSpecificationHtml = this.extractSectionHtml(container, CODEFORCES_SELECTORS.inputSpecification, doc.baseURI || url.href);
+      const outputSpecificationHtml = this.extractSectionHtml(container, CODEFORCES_SELECTORS.outputSpecification, doc.baseURI || url.href);
+      const interactionSpecificationHtml = this.extractSectionHtml(container, CODEFORCES_SELECTORS.interaction, doc.baseURI || url.href);
+      const noteHtml = this.extractSectionHtml(container, CODEFORCES_SELECTORS.note, doc.baseURI || url.href);
       const examples = this.extractExamples(container);
       const { tags, difficulty } = this.extractTagsAndRating(doc);
       const contest = this.extractContestInfo(doc, urlInfo);
@@ -32,6 +33,7 @@ export class CodeforcesParser {
         statementHtml,
         inputSpecificationHtml,
         outputSpecificationHtml,
+        interactionSpecificationHtml,
         noteHtml,
         examples,
         tags,
@@ -49,20 +51,27 @@ export class CodeforcesParser {
     }
   }
 
-  public extractUrlInfo(url: URL): { contestId: string; index: string } {
+  public extractUrlInfo(url: URL, doc?: Document): { contestId: string; index: string } {
     const pathname = url.pathname;
     const match = pathname.match(/(?:problemset\/problem|contest|gym|group\/[^/]+\/contest)\/([^/]+)\/problem\/([^/]+)/i)
       || pathname.match(/\/problemset\/problem\/([^/]+)\/([^/]+)/i)
       || pathname.match(/\/contest\/([^/]+)\/problem\/([^/]+)/i);
 
+    let contestId = '';
+    let index = '';
+
     if (match) {
-      return {
-        contestId: match[1],
-        index: match[2].toUpperCase()
-      };
+      contestId = match[1];
+      index = match[2].replace(/\/+$/, '').toUpperCase();
     }
 
-    return { contestId: '', index: '' };
+    if (!index && doc) {
+      const holder = doc.querySelector('.problemindexholder');
+      const idxAttr = holder?.getAttribute('problemindex');
+      if (idxAttr) index = idxAttr.toUpperCase();
+    }
+
+    return { contestId, index };
   }
 
   private extractTitle(container: Element, fallbackIndex: string): string {
@@ -99,7 +108,35 @@ export class CodeforcesParser {
     return { timeLimit, memoryLimit };
   }
 
-  private extractStatementHtml(container: Element): string {
+  private resolveRelativeUrls(node: Element, baseUri: string): void {
+    const imgs: Element[] = [];
+    if (node.tagName === 'IMG') imgs.push(node);
+    imgs.push(...Array.from(node.querySelectorAll('img')));
+
+    imgs.forEach(img => {
+      const src = img.getAttribute('src');
+      if (src && !src.startsWith('data:') && !src.startsWith('http://') && !src.startsWith('https://')) {
+        try {
+          img.setAttribute('src', new URL(src, baseUri).href);
+        } catch (_) {}
+      }
+    });
+
+    const links: Element[] = [];
+    if (node.tagName === 'A') links.push(node);
+    links.push(...Array.from(node.querySelectorAll('a')));
+
+    links.forEach(a => {
+      const href = a.getAttribute('href');
+      if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !href.startsWith('http://') && !href.startsWith('https://')) {
+        try {
+          a.setAttribute('href', new URL(href, baseUri).href);
+        } catch (_) {}
+      }
+    });
+  }
+
+  private extractStatementHtml(container: Element, baseUri: string): string {
     const header = container.querySelector(CODEFORCES_SELECTORS.header);
     if (!header) return '';
 
@@ -110,20 +147,23 @@ export class CodeforcesParser {
       if (
         current.classList.contains('input-specification') ||
         current.classList.contains('output-specification') ||
+        current.classList.contains('interaction') ||
         current.classList.contains('sample-tests') ||
         current.classList.contains('sample-test') ||
         current.classList.contains('note')
       ) {
         break;
       }
-      parts.push(current.outerHTML);
+      const clone = current.cloneNode(true) as HTMLElement;
+      this.resolveRelativeUrls(clone, baseUri);
+      parts.push(clone.outerHTML);
       current = current.nextElementSibling;
     }
 
     return sanitizeHtml(parts.join(''));
   }
 
-  private extractSectionHtml(container: Element, selector: string): string | undefined {
+  private extractSectionHtml(container: Element, selector: string, baseUri: string): string | undefined {
     const section = container.querySelector(selector);
     if (!section) return undefined;
 
@@ -133,27 +173,43 @@ export class CodeforcesParser {
       titleEl.remove();
     }
 
+    this.resolveRelativeUrls(clone, baseUri);
     const html = clone.innerHTML.trim();
     return html ? sanitizeHtml(html) : undefined;
   }
 
   private extractExamples(container: Element): ProblemExample[] {
-    const sampleTests = container.querySelectorAll(CODEFORCES_SELECTORS.sampleTestItem);
     const examples: ProblemExample[] = [];
 
-    sampleTests.forEach((test, idx) => {
-      const inputEl = test.querySelector('.input');
-      const outputEl = test.querySelector('.output');
+    // Strategy 1: Multiple .sample-test blocks
+    const sampleTests = container.querySelectorAll(CODEFORCES_SELECTORS.sampleTestItem);
+    if (sampleTests.length > 1) {
+      sampleTests.forEach((test, idx) => {
+        const inputEl = test.querySelector('.input');
+        const outputEl = test.querySelector('.output');
+        const input = this.extractPreText(inputEl?.querySelector('pre'));
+        const output = this.extractPreText(outputEl?.querySelector('pre'));
+        if (input || output) {
+          examples.push({ id: idx + 1, input, output });
+        }
+      });
+      if (examples.length > 0) return examples;
+    }
 
-      const input = this.extractPreText(inputEl?.querySelector('pre'));
-      const output = this.extractPreText(outputEl?.querySelector('pre'));
+    // Strategy 2: Codeforces standard: single .sample-test with multiple .input and .output pairs
+    const inputs = container.querySelectorAll('.sample-test .input, .sample-tests .input');
+    const outputs = container.querySelectorAll('.sample-test .output, .sample-tests .output');
+    const count = Math.min(inputs.length, outputs.length);
 
+    for (let i = 0; i < count; i++) {
+      const input = this.extractPreText(inputs[i].querySelector('pre'));
+      const output = this.extractPreText(outputs[i].querySelector('pre'));
       examples.push({
-        id: idx + 1,
+        id: i + 1,
         input,
         output
       });
-    });
+    }
 
     return examples;
   }

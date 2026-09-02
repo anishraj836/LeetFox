@@ -10,7 +10,7 @@ export function sanitizeHtml(dirty: string): string {
       'ul', 'ol', 'li', 'dl', 'dt', 'dd',
       'pre', 'code', 'blockquote',
       'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td',
-      'span', 'div', 'br', 'hr',
+      'span', 'div', 'br', 'hr', 'center',
       'img', 'a',
       // MathJax & KaTeX tags
       'math', 'semantics', 'mrow', 'mi', 'mo', 'mn', 'msup', 'msub', 'mfrac', 'mover', 'munder', 'msqrt', 'mroot', 'mtable', 'mtr', 'mtd', 'annotation'

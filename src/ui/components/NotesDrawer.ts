@@ -11,6 +11,7 @@ export class NotesDrawer {
   private statusLabel: HTMLElement;
   private saveTimeout: any = null;
   private isOpen = false;
+  private boundWindowEscape: (e: KeyboardEvent) => void;
 
   constructor(
     private problemId: string,
@@ -18,6 +19,13 @@ export class NotesDrawer {
     initialNotes: string,
     private callbacks: NotesDrawerCallbacks
   ) {
+    this.boundWindowEscape = (e: KeyboardEvent) => {
+      if (this.isOpen && e.key === 'Escape') {
+        e.stopPropagation();
+        this.close();
+      }
+    };
+
     this.element = createElement('div', {
       className: 'lf-notes-overlay',
       style: 'display: none;',
@@ -79,9 +87,14 @@ export class NotesDrawer {
     this.element.appendChild(drawer);
   }
 
+  public isDrawerOpen(): boolean {
+    return this.isOpen;
+  }
+
   public open(): void {
     this.isOpen = true;
     this.element.style.display = 'flex';
+    window.addEventListener('keydown', this.boundWindowEscape);
     setTimeout(() => {
       this.textarea.focus();
     }, 50);
@@ -94,6 +107,7 @@ export class NotesDrawer {
     }
     this.isOpen = false;
     this.element.style.display = 'none';
+    window.removeEventListener('keydown', this.boundWindowEscape);
     this.callbacks.onClose();
   }
 

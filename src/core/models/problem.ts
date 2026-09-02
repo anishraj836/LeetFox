@@ -26,11 +26,12 @@ export interface ProblemNavigation {
 export interface Problem {
   platform: 'codeforces' | 'cses' | string;
   id: string; // e.g. "4A", "1068"
-  qualifiedId: string; // e.g. "codeforces:4A", "cses:1068"
+  qualifiedId: string; // e.g. "codeforces:4a", "cses:1068"
   title: string;
   statementHtml: string;
   inputSpecificationHtml?: string;
   outputSpecificationHtml?: string;
+  interactionSpecificationHtml?: string;
   noteHtml?: string;
   examples: ProblemExample[];
   tags: string[];

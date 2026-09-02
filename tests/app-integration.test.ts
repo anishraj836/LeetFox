@@ -37,6 +37,7 @@ describe('LeetfoxApp Integration', () => {
     const appEl = doc.getElementById('leetfox-app');
     expect(appEl).not.toBeNull();
     expect(appEl?.dataset.lfTheme).toBe('dark');
+    expect(doc.body.classList.contains('lf-active')).toBe(true);
 
     // Header checks
     const titleEl = appEl?.querySelector('.lf-header-title');
@@ -78,19 +79,21 @@ describe('LeetfoxApp Integration', () => {
     expect(savedPrefs.theme).toBe('light');
 
     // Toggle View Original Page
-    const origContainer = adapter.getOriginalContainer(doc);
-    expect(origContainer).not.toBeNull();
-    // Initially original container is hidden
-    expect(origContainer?.style.display).toBe('none');
+    expect(appEl?.style.display).toBe('block');
+    expect(doc.body.classList.contains('lf-active')).toBe(true);
 
     // Toggle to view original
     await app.toggleViewOriginal();
-    expect(origContainer?.style.display).toBe('');
+    expect(doc.body.classList.contains('lf-active')).toBe(false);
     expect(appEl?.style.display).toBe('none');
+
+    // Floating switcher is present on original site
+    const switcher = doc.getElementById('lf-floating-switcher');
+    expect(switcher).not.toBeNull();
 
     // Toggle back to Leetfox view
     await app.toggleViewOriginal();
-    expect(origContainer?.style.display).toBe('none');
+    expect(doc.body.classList.contains('lf-active')).toBe(true);
     expect(appEl?.style.display).toBe('block');
   });
 

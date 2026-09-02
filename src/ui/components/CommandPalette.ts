@@ -16,10 +16,17 @@ export class CommandPalette {
   private filteredCommands: CommandItem[] = [];
   private selectedIndex = 0;
   private isOpen = false;
+  private boundWindowEscape: (e: KeyboardEvent) => void;
 
   constructor(commands: CommandItem[]) {
     this.commands = commands;
     this.filteredCommands = [...commands];
+    this.boundWindowEscape = (e: KeyboardEvent) => {
+      if (this.isOpen && e.key === 'Escape') {
+        e.stopPropagation();
+        this.close();
+      }
+    };
 
     this.element = createElement('div', {
       className: 'lf-palette-overlay',
@@ -54,6 +61,10 @@ export class CommandPalette {
 
     this.bindEvents();
     this.renderList();
+  }
+
+  public isPaletteOpen(): boolean {
+    return this.isOpen;
   }
 
   public setCommands(commands: CommandItem[]): void {
@@ -176,6 +187,7 @@ export class CommandPalette {
     this.element.style.display = 'flex';
     this.input.value = '';
     this.filter('');
+    window.addEventListener('keydown', this.boundWindowEscape);
     setTimeout(() => {
       this.input.focus();
     }, 50);
@@ -184,6 +196,8 @@ export class CommandPalette {
   public close(): void {
     this.isOpen = false;
     this.element.style.display = 'none';
+    this.input.blur();
+    window.removeEventListener('keydown', this.boundWindowEscape);
   }
 
   public toggle(): void {

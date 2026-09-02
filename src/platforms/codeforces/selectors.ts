@@ -10,6 +10,7 @@ export const CODEFORCES_SELECTORS = {
   // Content sections
   inputSpecification: '.problem-statement .input-specification',
   outputSpecification: '.problem-statement .output-specification',
+  interaction: '.problem-statement .interaction',
   sampleTests: '.problem-statement .sample-tests',
   sampleTestItem: '.problem-statement .sample-tests .sample-test',
   sampleInput: '.sample-test .input',

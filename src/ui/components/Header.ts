@@ -84,19 +84,19 @@ export class Header {
       className: `lf-btn lf-btn-solved ${this.state.solved ? 'active' : ''}`,
       title: 'Toggle Solved',
       onClick: () => this.callbacks.onToggleSolved()
-    }, this.state.solved ? '✓ Solved' : '○ Mark Solved');
+    }, this.state.solved ? '✓ Solved' : '○ Solve');
 
     this.bookmarkBtn = createElement('button', {
-      className: `lf-btn lf-btn-bookmark ${this.state.bookmarked ? 'active' : ''}`,
+      className: `lf-btn lf-btn-icon lf-btn-bookmark ${this.state.bookmarked ? 'active' : ''}`,
       title: 'Toggle Bookmark (B)',
       onClick: () => this.callbacks.onToggleBookmark()
-    }, this.state.bookmarked ? '★ Bookmarked' : '☆ Bookmark');
+    }, this.state.bookmarked ? '★' : '☆');
 
     this.notesBtn = createElement('button', {
-      className: `lf-btn lf-btn-notes ${this.state.notes ? 'active' : ''}`,
+      className: `lf-btn lf-btn-icon lf-btn-notes ${this.state.notes ? 'active' : ''}`,
       title: 'Problem Notes (N)',
       onClick: () => this.callbacks.onToggleNotes()
-    }, '📝 Notes');
+    }, '📝');
 
     const paletteBtn = createElement('button', {
       className: 'lf-btn',
@@ -120,7 +120,7 @@ export class Header {
       className: 'lf-btn',
       title: 'Toggle Original Site View (O)',
       onClick: () => this.callbacks.onToggleViewOriginal()
-    }, this.prefs.hideOriginalPage ? 'Original Site' : 'Leetfox View');
+    }, this.prefs.hideOriginalPage ? 'Original (O)' : 'Leetfox View');
 
     actionsGroup.appendChild(navGroup);
     actionsGroup.appendChild(this.solvedBtn);
@@ -143,28 +143,28 @@ export class Header {
       this.solvedBtn.textContent = '✓ Solved';
     } else {
       this.solvedBtn.className = 'lf-btn lf-btn-solved';
-      this.solvedBtn.textContent = '○ Mark Solved';
+      this.solvedBtn.textContent = '○ Solve';
     }
 
     if (this.state.bookmarked) {
-      this.bookmarkBtn.className = 'lf-btn lf-btn-bookmark active';
-      this.bookmarkBtn.textContent = '★ Bookmarked';
+      this.bookmarkBtn.className = 'lf-btn lf-btn-icon lf-btn-bookmark active';
+      this.bookmarkBtn.textContent = '★';
     } else {
-      this.bookmarkBtn.className = 'lf-btn lf-btn-bookmark';
-      this.bookmarkBtn.textContent = '☆ Bookmark';
+      this.bookmarkBtn.className = 'lf-btn lf-btn-icon lf-btn-bookmark';
+      this.bookmarkBtn.textContent = '☆';
     }
 
     if (this.state.notes && this.state.notes.trim()) {
-      this.notesBtn.className = 'lf-btn lf-btn-notes active';
+      this.notesBtn.className = 'lf-btn lf-btn-icon lf-btn-notes active';
     } else {
-      this.notesBtn.className = 'lf-btn lf-btn-notes';
+      this.notesBtn.className = 'lf-btn lf-btn-icon lf-btn-notes';
     }
   }
 
   public updatePreferences(prefs: UserPreferences): void {
     this.prefs = prefs;
     this.themeBtn.textContent = this.prefs.theme === 'dark' ? '☀️' : '🌙';
-    this.originalToggleBtn.textContent = this.prefs.hideOriginalPage ? 'Original Site' : 'Leetfox View';
+    this.originalToggleBtn.textContent = this.prefs.hideOriginalPage ? 'Original (O)' : 'Leetfox View';
   }
 
   public getElement(): HTMLElement {

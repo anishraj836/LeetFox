@@ -15,7 +15,7 @@ export class CSESParser {
       const title = this.extractTitle(doc, id);
       const limits = this.extractLimits(doc);
       const { statementHtml, inputSpecificationHtml, outputSpecificationHtml, noteHtml, examples } =
-        this.extractSectionsAndExamples(mdContainer);
+        this.extractSectionsAndExamples(mdContainer, doc.baseURI || url.href);
       const category = this.extractCategory(doc);
       const navigation = this.extractNavigation(doc, url);
 
@@ -73,7 +73,35 @@ export class CSESParser {
     return { timeLimit, memoryLimit };
   }
 
-  private extractSectionsAndExamples(mdContainer: Element): {
+  private resolveRelativeUrls(node: Element, baseUri: string): void {
+    const imgs: Element[] = [];
+    if (node.tagName === "IMG") imgs.push(node);
+    imgs.push(...Array.from(node.querySelectorAll("img")));
+
+    imgs.forEach(img => {
+      const src = img.getAttribute("src");
+      if (src && !src.startsWith("data:") && !src.startsWith("http://") && !src.startsWith("https://")) {
+        try {
+          img.setAttribute("src", new URL(src, baseUri).href);
+        } catch (_) {}
+      }
+    });
+
+    const links: Element[] = [];
+    if (node.tagName === "A") links.push(node);
+    links.push(...Array.from(node.querySelectorAll("a")));
+
+    links.forEach(a => {
+      const href = a.getAttribute("href");
+      if (href && !href.startsWith("#") && !href.startsWith("javascript:") && !href.startsWith("http://") && !href.startsWith("https://")) {
+        try {
+          a.setAttribute("href", new URL(href, baseUri).href);
+        } catch (_) {}
+      }
+    });
+  }
+
+  private extractSectionsAndExamples(mdContainer: Element, baseUri: string): {
     statementHtml: string;
     inputSpecificationHtml?: string;
     outputSpecificationHtml?: string;
@@ -109,16 +137,19 @@ export class CSESParser {
         }
       }
 
+      const clone = child.cloneNode(true) as HTMLElement;
+      this.resolveRelativeUrls(clone, baseUri);
+
       if (currentSection === 'statement') {
-        statementNodes.push(child.outerHTML);
+        statementNodes.push(clone.outerHTML);
       } else if (currentSection === 'input') {
-        inputNodes.push(child.outerHTML);
+        inputNodes.push(clone.outerHTML);
       } else if (currentSection === 'output') {
-        outputNodes.push(child.outerHTML);
+        outputNodes.push(clone.outerHTML);
       } else if (currentSection === 'constraints') {
-        constraintNodes.push(child.outerHTML);
+        constraintNodes.push(clone.outerHTML);
       } else if (currentSection === 'example') {
-        exampleNodes.push(child);
+        exampleNodes.push(clone);
       }
     }
 
@@ -149,11 +180,11 @@ export class CSESParser {
     for (const node of nodes) {
       const text = (node.textContent || '').trim().toLowerCase();
 
-      if (node.tagName === 'P') {
-        if (text.startsWith('input')) {
+      if (node.tagName === 'P' || node.tagName === 'H2' || node.tagName === 'H3') {
+        if (text.includes('input')) {
           state = 'input';
           continue;
-        } else if (text.startsWith('output')) {
+        } else if (text.includes('output')) {
           state = 'output';
           continue;
         }
@@ -181,12 +212,12 @@ export class CSESParser {
       }
     }
 
-    // In case single example with no matching output or fallback
-    if (currentInput !== null && currentOutput !== null) {
+    // Fallback if odd number or unclosed example
+    if (currentInput !== null || currentOutput !== null) {
       examples.push({
         id: examples.length + 1,
-        input: currentInput,
-        output: currentOutput
+        input: currentInput || "",
+        output: currentOutput || ""
       });
     }
 

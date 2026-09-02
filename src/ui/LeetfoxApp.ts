@@ -16,14 +16,18 @@ import { KeyboardCheatSheet } from './components/KeyboardCheatSheet';
 
 export class LeetfoxApp {
   private rootElement: HTMLElement;
-  private originalContainer: HTMLElement | null = null;
+  private floatingSwitcher: HTMLElement | null = null;
   private header!: Header;
   private progressBar: ProgressBar | null = null;
+  private statementView!: StatementView;
   private notesDrawer!: NotesDrawer;
   private commandPalette!: CommandPalette;
   private cheatSheet!: KeyboardCheatSheet;
   private keyboardManager: KeyboardManager;
   private storage: StorageManager;
+  private unsubscribeState: (() => void) | null = null;
+  private unsubscribePrefs: (() => void) | null = null;
+  private doc!: Document;
 
   constructor(
     private adapter: PlatformAdapter,
@@ -40,7 +44,7 @@ export class LeetfoxApp {
   }
 
   public async mount(doc: Document): Promise<void> {
-    this.originalContainer = this.adapter.getOriginalContainer(doc);
+    this.doc = doc;
 
     // Build subcomponents
     this.header = new Header(
@@ -72,8 +76,8 @@ export class LeetfoxApp {
       }
     }
 
-    const statementView = new StatementView(this.problem);
-    main.appendChild(statementView.getElement());
+    this.statementView = new StatementView(this.problem, this.prefs.autoCopyExampleOnClick);
+    main.appendChild(this.statementView.getElement());
 
     // Modals and Drawers
     this.notesDrawer = new NotesDrawer(
@@ -96,18 +100,63 @@ export class LeetfoxApp {
     this.rootElement.appendChild(this.commandPalette.getElement());
     this.rootElement.appendChild(this.cheatSheet.getElement());
 
-    // Insert into host DOM
-    if (this.originalContainer && this.originalContainer.parentNode) {
-      this.originalContainer.parentNode.insertBefore(this.rootElement, this.originalContainer);
-      if (this.prefs.hideOriginalPage) {
-        this.originalContainer.style.display = 'none';
+    // Mount to document.body for clean, full-page rendering without host CSS constraints
+    doc.body.appendChild(this.rootElement);
+
+    // Floating switcher pill shown when viewing the original site
+    this.floatingSwitcher = createElement('div', {
+      id: 'lf-floating-switcher',
+      title: 'Switch to Leetfox View (O)',
+      style: this.prefs.hideOriginalPage ? 'display: none !important;' : 'display: flex !important;',
+      onClick: () => this.toggleViewOriginal()
+    }, '🦊 Switch to Leetfox (O)');
+    doc.body.appendChild(this.floatingSwitcher);
+
+    if (this.prefs.hideOriginalPage) {
+      this.doc.body.classList.add('lf-active');
+      this.rootElement.style.setProperty('display', 'block', 'important');
+      if (this.floatingSwitcher) {
+        this.floatingSwitcher.style.setProperty('display', 'none', 'important');
       }
     } else {
-      doc.body.prepend(this.rootElement);
+      this.doc.body.classList.remove('lf-active');
+      this.rootElement.style.setProperty('display', 'none', 'important');
+      if (this.floatingSwitcher) {
+        this.floatingSwitcher.style.setProperty('display', 'flex', 'important');
+      }
     }
 
     this.setupKeyboardShortcuts();
     this.setupStorageListeners(doc);
+
+    // Typeset math (KaTeX / MathJax) if available on host page
+    this.statementView.typesetMath();
+  }
+
+  public isAnyModalOpen(): boolean {
+    return (
+      (this.notesDrawer && this.notesDrawer.isDrawerOpen()) ||
+      (this.commandPalette && this.commandPalette.isPaletteOpen()) ||
+      (this.cheatSheet && this.cheatSheet.isModalOpen())
+    );
+  }
+
+  public destroy(): void {
+    this.keyboardManager.stop();
+    if (this.unsubscribeState) {
+      this.unsubscribeState();
+      this.unsubscribeState = null;
+    }
+    if (this.unsubscribePrefs) {
+      this.unsubscribePrefs();
+      this.unsubscribePrefs = null;
+    }
+    this.doc.body.classList.remove('lf-active');
+    if (this.floatingSwitcher) {
+      this.floatingSwitcher.remove();
+      this.floatingSwitcher = null;
+    }
+    this.rootElement.remove();
   }
 
   private buildCommands(): CommandItem[] {
@@ -193,6 +242,21 @@ export class LeetfoxApp {
   }
 
   private setupKeyboardShortcuts(): void {
+    this.keyboardManager.setModalChecker(() => this.isAnyModalOpen());
+
+    // Escape closes any active modal
+    this.keyboardManager.registerAction({
+      id: 'close-active-modal',
+      name: 'Close Active Modal',
+      description: 'Close active modal, palette, or drawer',
+      keyCombination: 'escape',
+      handler: () => {
+        if (this.commandPalette.isPaletteOpen()) this.commandPalette.close();
+        if (this.notesDrawer.isDrawerOpen()) this.notesDrawer.close();
+        if (this.cheatSheet.isModalOpen()) this.cheatSheet.close();
+      }
+    });
+
     // Cmd+K
     this.keyboardManager.registerAction({
       id: 'open-command-palette',
@@ -271,7 +335,7 @@ export class LeetfoxApp {
   private setupStorageListeners(doc: Document): void {
     const qualifiedKey = this.storage.getQualifiedKey(this.problem.platform, this.problem.id);
 
-    this.storage.onStateChange(async (key, updatedState) => {
+    this.unsubscribeState = this.storage.onStateChange(async (key, updatedState) => {
       if (key === qualifiedKey) {
         this.state = updatedState;
         this.header.updateState(this.state);
@@ -289,7 +353,7 @@ export class LeetfoxApp {
       }
     });
 
-    this.storage.onPreferencesChange((prefs) => {
+    this.unsubscribePrefs = this.storage.onPreferencesChange((prefs) => {
       this.prefs = prefs;
       this.rootElement.dataset.lfTheme = this.prefs.theme;
       this.header.updatePreferences(this.prefs);
@@ -337,10 +401,20 @@ export class LeetfoxApp {
     await this.storage.savePreferences({ hideOriginalPage: nextHide });
     this.prefs.hideOriginalPage = nextHide;
 
-    if (this.originalContainer) {
-      this.originalContainer.style.display = nextHide ? 'none' : '';
+    if (nextHide) {
+      this.doc.body.classList.add('lf-active');
+      this.rootElement.style.setProperty('display', 'block', 'important');
+      if (this.floatingSwitcher) {
+        this.floatingSwitcher.style.setProperty('display', 'none', 'important');
+      }
+    } else {
+      this.doc.body.classList.remove('lf-active');
+      this.rootElement.style.setProperty('display', 'none', 'important');
+      if (this.floatingSwitcher) {
+        this.floatingSwitcher.style.setProperty('display', 'flex', 'important');
+      }
     }
-    this.rootElement.style.display = nextHide ? 'block' : 'none';
+
     this.header.updatePreferences(this.prefs);
     this.commandPalette.setCommands(this.buildCommands());
   }

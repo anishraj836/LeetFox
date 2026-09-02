@@ -4,7 +4,7 @@ import { createElement, copyToClipboard } from '../../core/utils/dom';
 export class ExampleCard {
   private element: HTMLElement;
 
-  constructor(private example: ProblemExample) {
+  constructor(private example: ProblemExample, private autoCopyOnClick = true) {
     this.element = createElement('div', { className: 'lf-example-card' });
 
     // Header
@@ -27,18 +27,29 @@ export class ExampleCard {
       title: 'Copy Input'
     }, '📋 Copy');
 
-    copyInputBtn.addEventListener('click', async () => {
+    const doCopyInput = async () => {
       const ok = await copyToClipboard(this.example.input);
       if (ok) {
         copyInputBtn.textContent = '✓ Copied!';
         setTimeout(() => { copyInputBtn.textContent = '📋 Copy'; }, 1500);
       }
-    });
+    };
+
+    copyInputBtn.addEventListener('click', doCopyInput);
 
     inputTitleRow.appendChild(inputLabel);
     inputTitleRow.appendChild(copyInputBtn);
 
-    const inputPre = createElement('pre', { className: 'lf-example-pre' }, this.example.input);
+    const inputPre = createElement('pre', {
+      className: 'lf-example-pre',
+      title: this.autoCopyOnClick ? 'Click to copy input' : undefined,
+      style: this.autoCopyOnClick ? 'cursor: pointer;' : undefined
+    }, this.example.input);
+
+    if (this.autoCopyOnClick) {
+      inputPre.addEventListener('click', doCopyInput);
+    }
+
     inputPane.appendChild(inputTitleRow);
     inputPane.appendChild(inputPre);
 
@@ -53,18 +64,29 @@ export class ExampleCard {
       title: 'Copy Output'
     }, '📋 Copy');
 
-    copyOutputBtn.addEventListener('click', async () => {
+    const doCopyOutput = async () => {
       const ok = await copyToClipboard(this.example.output);
       if (ok) {
         copyOutputBtn.textContent = '✓ Copied!';
         setTimeout(() => { copyOutputBtn.textContent = '📋 Copy'; }, 1500);
       }
-    });
+    };
+
+    copyOutputBtn.addEventListener('click', doCopyOutput);
 
     outputTitleRow.appendChild(outputLabel);
     outputTitleRow.appendChild(copyOutputBtn);
 
-    const outputPre = createElement('pre', { className: 'lf-example-pre' }, this.example.output);
+    const outputPre = createElement('pre', {
+      className: 'lf-example-pre',
+      title: this.autoCopyOnClick ? 'Click to copy output' : undefined,
+      style: this.autoCopyOnClick ? 'cursor: pointer;' : undefined
+    }, this.example.output);
+
+    if (this.autoCopyOnClick) {
+      outputPre.addEventListener('click', doCopyOutput);
+    }
+
     outputPane.appendChild(outputTitleRow);
     outputPane.appendChild(outputPre);
 

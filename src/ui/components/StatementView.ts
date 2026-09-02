@@ -5,7 +5,7 @@ import { ExampleCard } from './ExampleCard';
 export class StatementView {
   private element: HTMLElement;
 
-  constructor(private problem: Problem) {
+  constructor(private problem: Problem, private autoCopyExampleOnClick = true) {
     this.element = createElement('div', { className: 'lf-statement-wrapper' });
 
     // 1. Problem Statement
@@ -42,14 +42,26 @@ export class StatementView {
       this.element.appendChild(outputCard);
     }
 
-    // 4. Examples
+    // 4. Interaction Specification (for interactive problems)
+    if (this.problem.interactionSpecificationHtml) {
+      const interactionCard = createElement('div', { className: 'lf-card' });
+      const interactionHeader = createElement('h3', { className: 'lf-section-header' }, 'Interaction');
+      const interactionBody = createElement('div', { className: 'lf-statement-body' });
+      interactionBody.innerHTML = this.problem.interactionSpecificationHtml;
+
+      interactionCard.appendChild(interactionHeader);
+      interactionCard.appendChild(interactionBody);
+      this.element.appendChild(interactionCard);
+    }
+
+    // 5. Examples
     if (this.problem.examples && this.problem.examples.length > 0) {
       const examplesCard = createElement('div', { className: 'lf-card' });
       const examplesHeader = createElement('h3', { className: 'lf-section-header' }, 'Examples');
       const examplesContainer = createElement('div', { className: 'lf-example-container' });
 
       for (const ex of this.problem.examples) {
-        const card = new ExampleCard(ex);
+        const card = new ExampleCard(ex, this.autoCopyExampleOnClick);
         examplesContainer.appendChild(card.getElement());
       }
 
@@ -58,7 +70,7 @@ export class StatementView {
       this.element.appendChild(examplesCard);
     }
 
-    // 5. Note / Additional Constraints
+    // 6. Note / Additional Constraints
     if (this.problem.noteHtml) {
       const noteCard = createElement('div', { className: 'lf-card' });
       const noteHeader = createElement('h3', { className: 'lf-section-header' }, 'Note');
@@ -68,6 +80,31 @@ export class StatementView {
       noteCard.appendChild(noteHeader);
       noteCard.appendChild(noteBody);
       this.element.appendChild(noteCard);
+    }
+  }
+
+  public typesetMath(): void {
+    const win = window as any;
+    if (typeof win.katex !== 'undefined') {
+      const mathElements = this.element.querySelectorAll('.math');
+      mathElements.forEach((el) => {
+        if (!el.querySelector('.katex')) {
+          const text = el.textContent || '';
+          const isDisplay = el.classList.contains('math-display');
+          try {
+            win.katex.render(text, el, {
+              displayMode: isDisplay,
+              throwOnError: false
+            });
+          } catch (_) {}
+        }
+      });
+    }
+
+    if (typeof win.MathJax?.typesetPromise === 'function') {
+      try {
+        win.MathJax.typesetPromise([this.element]).catch(() => {});
+      } catch (_) {}
     }
   }
 
