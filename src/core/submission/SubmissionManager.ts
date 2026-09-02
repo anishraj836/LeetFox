@@ -10,9 +10,6 @@ export interface PendingSubmission {
 
 export class SubmissionManager {
   private static instance: SubmissionManager;
-  
-  private constructor() {
-      }
 
   public static getInstance(): SubmissionManager {
     if (!SubmissionManager.instance) {
@@ -103,13 +100,10 @@ export class SubmissionManager {
       const submitPageUrl = `https://cses.fi/problemset/submit/${taskId}/`;
       const pageRes = await fetch(submitPageUrl, { credentials: 'include' });
       if (!pageRes.ok || pageRes.url.includes('/login')) {
-        if (pageRes.status === 404 || pageRes.status === 403 || pageRes.url.includes('/login')) {
-          return {
-            success: false,
-            error: 'You must be logged in to CSES to submit. Please log in to your CSES account.'
-          };
-        }
-        return { success: false, error: `Failed to load CSES submit page (status ${pageRes.status}).` };
+        return {
+          success: false,
+          error: 'You must be logged in to CSES to submit. Please log in to your CSES account.'
+        };
       }
 
       const html = await pageRes.text();
@@ -170,10 +164,25 @@ export class SubmissionManager {
 
     if (!codeToSubmit) {
       const storageArea = (globalThis as any).browser?.storage?.local || (globalThis as any).chrome?.storage?.local;
-      const key = `code:cses:${taskId}:cpp`;
-      if (storageArea) {
-        const res = await (storageArea.get(key) instanceof Promise ? storageArea.get(key) : new Promise<any>(r => storageArea.get(key, r)));
-        if (res && res[key]) codeToSubmit = res[key];
+      const candidateLangs = ['cpp', 'python', 'java', 'rust', 'go'];
+      for (const candidate of candidateLangs) {
+        const key = `code:cses:${taskId}:${candidate}`;
+        if (storageArea) {
+          const res = await (storageArea.get(key) instanceof Promise ? storageArea.get(key) : new Promise<any>(r => storageArea.get(key, r)));
+          if (res && res[key]) {
+            codeToSubmit = res[key];
+            lang = candidate;
+            break;
+          }
+        }
+        if (typeof window !== 'undefined' && window.localStorage) {
+          const localCode = window.localStorage.getItem(key);
+          if (localCode) {
+            codeToSubmit = localCode;
+            lang = candidate;
+            break;
+          }
+        }
       }
     }
 
@@ -197,7 +206,6 @@ export class SubmissionManager {
         dt.items.add(file);
         fileInput.files = dt.files;
       }
-      
     } catch (e) {
       console.warn('[Leetfox] Could not set DataTransfer files on CSES file input', e);
     }
@@ -242,6 +250,36 @@ export class SubmissionManager {
   }
 
   /**
+   * Helper to select matching compiler on Codeforces submit form
+   */
+  private selectMatchingCodeforcesLanguage(select: HTMLSelectElement, lang: string): void {
+    const l = lang.toLowerCase();
+    const options = Array.from(select.options);
+
+    let matchOption: HTMLOptionElement | undefined;
+
+    if (l === 'cpp') {
+      matchOption = options.find(o => /g\+\+20|g\+\+17|g\+\+23|gnu c\+\+/i.test(o.text))
+        || options.find(o => /c\+\+/i.test(o.text));
+    } else if (l === 'python') {
+      matchOption = options.find(o => /python 3|pypy 3/i.test(o.text))
+        || options.find(o => /python/i.test(o.text));
+    } else if (l === 'java') {
+      matchOption = options.find(o => /java 21|java 17|java 11|openjdk/i.test(o.text))
+        || options.find(o => /java/i.test(o.text));
+    } else if (l === 'rust') {
+      matchOption = options.find(o => /rust/i.test(o.text));
+    } else if (l === 'go') {
+      matchOption = options.find(o => /\bgo\b/i.test(o.text));
+    }
+
+    if (matchOption) {
+      select.value = matchOption.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  /**
    * Handles auto-filling code on Codeforces submit page
    */
   public async handleCodeforcesSubmitPage(doc: Document, url: URL): Promise<boolean> {
@@ -260,6 +298,12 @@ export class SubmissionManager {
       problemInput.value = pending.problemId;
     }
 
+    // Set language dropdown on Codeforces submit form
+    const langSelect = form.querySelector('select[name="programTypeId"]') as HTMLSelectElement;
+    if (langSelect) {
+      this.selectMatchingCodeforcesLanguage(langSelect, pending.language);
+    }
+
     // Fill source code
     const textarea = form.querySelector('textarea#sourceCodeTextarea, textarea[name="source"]') as HTMLTextAreaElement;
     if (textarea) {
@@ -272,9 +316,11 @@ export class SubmissionManager {
       const filename = this.getFilenameForLanguage(pending.language);
       const file = new File([pending.code], filename, { type: 'text/plain' });
       try {
-        const dt = new DataTransfer();
-        dt.items.add(file);
-        fileInput.files = dt.files;
+        if (typeof DataTransfer !== 'undefined') {
+          const dt = new DataTransfer();
+          dt.items.add(file);
+          fileInput.files = dt.files;
+        }
       } catch (_) {}
     }
 
@@ -288,7 +334,7 @@ export class SubmissionManager {
       const icon = createElement('span', { className: 'lf-banner-icon' }, '🦊');
       const textGroup = createElement('div', { className: 'lf-banner-text' });
       const bannerTitle = createElement('strong', {}, `Leetfox loaded your solution for ${pending.problemId}`);
-      const bannerSub = createElement('p', {}, `Code filled (${pending.code.split('\n').length} lines). Ready to submit!`);
+      const bannerSub = createElement('p', {}, `Language set to ${pending.language.toUpperCase()}, code filled (${pending.code.split('\n').length} lines). Ready to submit!`);
 
       textGroup.appendChild(bannerTitle);
       textGroup.appendChild(bannerSub);

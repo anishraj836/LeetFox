@@ -709,3 +709,38 @@ describe('Homescreen Isolation, Non-Problem Pages & Code Runner', () => {
     expect(runBtn.textContent).toContain('Run');
   });
 });
+
+describe('Submission Edge Cases & Language Selection', () => {
+  it('selects matching compiler on Codeforces submit form based on language', async () => {
+    const subManager = SubmissionManager.getInstance();
+    await subManager.setPendingSubmission({
+      platform: 'codeforces',
+      problemId: '100A',
+      language: 'python',
+      code: 'print("hello")',
+      timestamp: Date.now()
+    });
+
+    const cfSubmitHtml = `
+      <html><body>
+        <form class="submitForm" action="/contest/100/submit" method="post">
+          <input name="submittedProblemCode" value="">
+          <select name="programTypeId">
+            <option value="54">GNU G++20 11.2.0</option>
+            <option value="31">Python 3.8.10</option>
+            <option value="60">Java 21 64bit</option>
+          </select>
+          <textarea id="sourceCodeTextarea" name="source"></textarea>
+          <input type="submit" value="Submit">
+        </form>
+      </body></html>
+    `;
+
+    const dom = new JSDOM(cfSubmitHtml, { url: 'https://codeforces.net/contest/100/submit' });
+    const handled = await subManager.handleCodeforcesSubmitPage(dom.window.document, new URL('https://codeforces.net/contest/100/submit'));
+
+    expect(handled).toBe(true);
+    const select = dom.window.document.querySelector('select[name="programTypeId"]') as HTMLSelectElement;
+    expect(select.value).toBe('31'); // Python 3
+  });
+});

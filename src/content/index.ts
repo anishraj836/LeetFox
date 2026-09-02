@@ -32,7 +32,7 @@ async function bootstrap(): Promise<void> {
       const handled = await subManager.handleCSESSubmitPage(document, currentUrl);
       if (handled) return;
     }
-    if (currentUrl.hostname.includes('codeforces.com') && currentUrl.pathname.includes('/submit')) {
+    if ((currentUrl.hostname.includes('codeforces.com') || currentUrl.hostname.includes('codeforces.net')) && currentUrl.pathname.includes('/submit')) {
       const handled = await subManager.handleCodeforcesSubmitPage(document, currentUrl);
       if (handled) return;
     }
