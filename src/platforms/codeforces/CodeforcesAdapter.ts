@@ -27,6 +27,11 @@ export class CodeforcesAdapter implements PlatformAdapter {
       /\/group\/[^/]+\/contest\/\d+\/problem\/[a-z0-9]/i.test(path)
     );
 
+    // Explicitly exclude non-problem pages that might contain the pattern
+    if (path.includes('/submit') || path.includes('/status') || path.includes('/standings') || path.includes('/hack') || path.includes('/customtest')) {
+      return false;
+    }
+
     // If it is not a problem URL (e.g. homepage, contests list, login /enter), return false
     if (!isProblemUrl) {
       return false;

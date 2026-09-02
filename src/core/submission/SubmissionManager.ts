@@ -102,8 +102,8 @@ export class SubmissionManager {
     try {
       const submitPageUrl = `https://cses.fi/problemset/submit/${taskId}/`;
       const pageRes = await fetch(submitPageUrl, { credentials: 'include' });
-      if (!pageRes.ok) {
-        if (pageRes.status === 404 || pageRes.status === 403) {
+      if (!pageRes.ok || pageRes.url.includes('/login')) {
+        if (pageRes.status === 404 || pageRes.status === 403 || pageRes.url.includes('/login')) {
           return {
             success: false,
             error: 'You must be logged in to CSES to submit. Please log in to your CSES account.'
@@ -140,6 +140,9 @@ export class SubmissionManager {
 
       if (postRes.ok) {
         const finalUrl = postRes.url;
+        if (finalUrl.includes('/login')) {
+          return { success: false, error: 'You must be logged in to CSES to submit. Please log in to your CSES account.' };
+        }
         return {
           success: true,
           resultUrl: finalUrl.includes('/result/') ? finalUrl : `https://cses.fi/problemset/result/${taskId}/`
