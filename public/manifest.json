@@ -10,6 +10,8 @@
   "host_permissions": [
     "*://codeforces.com/*",
     "*://*.codeforces.com/*",
+    "*://codeforces.net/*",
+    "*://*.codeforces.net/*",
     "*://cses.fi/*",
     "*://*.cses.fi/*"
   ],
@@ -21,6 +23,8 @@
       "matches": [
         "*://codeforces.com/*",
         "*://*.codeforces.com/*",
+        "*://codeforces.net/*",
+        "*://*.codeforces.net/*",
         "*://cses.fi/*",
         "*://*.cses.fi/*"
       ],
