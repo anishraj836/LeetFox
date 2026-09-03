@@ -1024,47 +1024,30 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   cursor: pointer !important;
 }
 
-.lf-editor-wrapper {
-  display: flex !important;
+/* CodeMirror 6 Editor Host */
+.lf-cm-host {
   min-height: 420px !important;
   max-height: 580px !important;
-  background-color: var(--lf-code-bg) !important;
-  font-family: var(--lf-font-mono) !important;
   border-bottom: 1px solid var(--lf-border) !important;
   position: relative !important;
-}
-
-.lf-line-numbers {
-  padding: 12px 10px !important;
-  color: var(--lf-text-muted) !important;
-  font-size: 13px !important;
-  line-height: 1.5 !important;
-  font-family: var(--lf-font-mono) !important;
-  text-align: right !important;
-  user-select: none !important;
-  border-right: 1px solid var(--lf-code-border) !important;
-  white-space: pre !important;
   overflow: hidden !important;
-  min-width: 42px !important;
-  background-color: rgba(0, 0, 0, 0.15) !important;
 }
 
-.lf-editor-textarea {
-  flex: 1 !important;
-  padding: 12px 14px !important;
-  font-family: var(--lf-font-mono) !important;
-  font-size: 13px !important;
-  line-height: 1.5 !important;
-  background: transparent !important;
-  color: var(--lf-text-main) !important;
-  border: none !important;
-  outline: none !important;
-  resize: none !important;
-  white-space: pre !important;
-  overflow: auto !important;
-  tab-size: 4 !important;
-  width: 100% !important;
+.lf-cm-host .cm-editor {
+  height: 100% !important;
+  min-height: 420px !important;
+  max-height: 580px !important;
 }
+
+.lf-cm-host .cm-scroller {
+  overflow: auto !important;
+}
+
+/* Prevent host page styles from bleeding into CodeMirror */
+.lf-cm-host .cm-editor * {
+  box-sizing: border-box !important;
+}
+
 
 /* Testcase Console Card */
 .lf-console-card {

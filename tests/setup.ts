@@ -78,3 +78,57 @@ const mockStorage = {
 if (typeof Element.prototype.scrollIntoView !== 'function') {
   Element.prototype.scrollIntoView = () => {};
 }
+
+// CodeMirror 6 requires requestAnimationFrame/cancelAnimationFrame.
+// JSDOM may have requestAnimationFrame (via timers) but NOT cancelAnimationFrame.
+// CodeMirror accesses these via `this.win` which is `document.defaultView` (JSDOM's Window).
+// We must patch ALL possible window references.
+
+const rafPolyfill = (cb: FrameRequestCallback): number => {
+  return setTimeout(() => cb(Date.now()), 0) as unknown as number;
+};
+const cafPolyfill = (id: number): void => {
+  clearTimeout(id);
+};
+
+// Patch globalThis
+if (typeof globalThis.requestAnimationFrame !== 'function') {
+  (globalThis as any).requestAnimationFrame = rafPolyfill;
+}
+if (typeof globalThis.cancelAnimationFrame !== 'function') {
+  (globalThis as any).cancelAnimationFrame = cafPolyfill;
+}
+
+// Patch window
+if (typeof window !== 'undefined') {
+  if (typeof window.requestAnimationFrame !== 'function') {
+    (window as any).requestAnimationFrame = rafPolyfill;
+  }
+  if (typeof window.cancelAnimationFrame !== 'function') {
+    (window as any).cancelAnimationFrame = cafPolyfill;
+  }
+}
+
+// Patch document.defaultView (this is the one CodeMirror actually uses as `this.win`)
+if (typeof document !== 'undefined' && document.defaultView) {
+  const dv = document.defaultView as any;
+  if (typeof dv.requestAnimationFrame !== 'function') {
+    dv.requestAnimationFrame = rafPolyfill;
+  }
+  if (typeof dv.cancelAnimationFrame !== 'function') {
+    dv.cancelAnimationFrame = cafPolyfill;
+  }
+}
+
+// CodeMirror needs createRange in JSDOM
+if (typeof document !== 'undefined') {
+  if (typeof document.createRange !== 'function') {
+    (document as any).createRange = () => ({
+      setStart: () => {},
+      setEnd: () => {},
+      getBoundingClientRect: () => ({ top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => ({}) }),
+      getClientRects: () => [],
+      commonAncestorContainer: document.body,
+    });
+  }
+}

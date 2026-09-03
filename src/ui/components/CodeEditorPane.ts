@@ -4,6 +4,21 @@ import { StorageManager } from '../../core/storage/StorageManager';
 import { SubmissionManager } from '../../core/submission/SubmissionManager';
 import { CodeRunner, type ExecutionResult } from '../../core/runner/CodeRunner';
 
+// CodeMirror 6 imports
+import { EditorState, type Extension } from '@codemirror/state';
+import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, rectangularSelection } from '@codemirror/view';
+import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands';
+import { syntaxHighlighting, indentOnInput, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
+import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from '@codemirror/autocomplete';
+import { lintKeymap } from '@codemirror/lint';
+import { searchKeymap, highlightSelectionMatches } from '@codemirror/search';
+import { cpp } from '@codemirror/lang-cpp';
+import { python } from '@codemirror/lang-python';
+import { java } from '@codemirror/lang-java';
+import { rust } from '@codemirror/lang-rust';
+import { go } from '@codemirror/lang-go';
+import { tags } from '@lezer/highlight';
+
 export interface CodeTemplate {
   name: string;
   extension: string;
@@ -105,11 +120,148 @@ func main() {
   }
 };
 
+// Language extension factory
+function getLanguageExtension(lang: string): Extension {
+  switch (lang) {
+    case 'cpp': return cpp();
+    case 'python': return python();
+    case 'java': return java();
+    case 'rust': return rust();
+    case 'go': return go();
+    default: return cpp();
+  }
+}
+
+// Custom Leetfox dark theme (matches our CSS variables)
+const leetfoxDarkTheme = EditorView.theme({
+  '&': {
+    backgroundColor: 'var(--lf-code-bg, #1e1e2e)',
+    color: 'var(--lf-text-main, #cdd6f4)',
+    fontSize: '13px',
+    fontFamily: 'var(--lf-font-mono, "Fira Code", "JetBrains Mono", "Cascadia Code", "SF Mono", Menlo, monospace)',
+  },
+  '.cm-content': {
+    caretColor: 'var(--lf-accent, #89b4fa)',
+    padding: '8px 0',
+  },
+  '.cm-cursor, .cm-dropCursor': {
+    borderLeftColor: 'var(--lf-accent, #89b4fa)',
+    borderLeftWidth: '2px',
+  },
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection': {
+    backgroundColor: 'rgba(137, 180, 250, 0.2)',
+  },
+  '.cm-activeLine': {
+    backgroundColor: 'rgba(137, 180, 250, 0.06)',
+  },
+  '.cm-activeLineGutter': {
+    backgroundColor: 'rgba(137, 180, 250, 0.06)',
+    color: 'var(--lf-accent, #89b4fa)',
+  },
+  '.cm-gutters': {
+    backgroundColor: 'rgba(0, 0, 0, 0.15)',
+    color: 'var(--lf-text-muted, #6c7086)',
+    border: 'none',
+    borderRight: '1px solid var(--lf-code-border, rgba(255,255,255,0.06))',
+  },
+  '.cm-lineNumbers .cm-gutterElement': {
+    padding: '0 8px 0 12px',
+    minWidth: '32px',
+    fontSize: '13px',
+  },
+  '.cm-foldGutter .cm-gutterElement': {
+    padding: '0 4px',
+  },
+  '.cm-matchingBracket': {
+    backgroundColor: 'rgba(137, 180, 250, 0.25)',
+    outline: '1px solid rgba(137, 180, 250, 0.5)',
+    color: 'inherit',
+  },
+  '.cm-searchMatch': {
+    backgroundColor: 'rgba(249, 226, 175, 0.2)',
+    outline: '1px solid rgba(249, 226, 175, 0.4)',
+  },
+  '.cm-selectionMatch': {
+    backgroundColor: 'rgba(166, 227, 161, 0.15)',
+  },
+  '.cm-tooltip': {
+    backgroundColor: 'var(--lf-bg-card, #313244)',
+    border: '1px solid var(--lf-border, rgba(255,255,255,0.1))',
+    borderRadius: '8px',
+    color: 'var(--lf-text-main, #cdd6f4)',
+  },
+  '.cm-tooltip.cm-tooltip-autocomplete > ul > li': {
+    padding: '4px 8px',
+  },
+  '.cm-tooltip-autocomplete ul li[aria-selected]': {
+    backgroundColor: 'rgba(137, 180, 250, 0.15)',
+    color: 'var(--lf-text-main, #cdd6f4)',
+  },
+  '.cm-scroller': {
+    overflow: 'auto',
+    fontFamily: 'inherit',
+  },
+  '.cm-panels': {
+    backgroundColor: 'var(--lf-bg-card, #313244)',
+    color: 'var(--lf-text-main, #cdd6f4)',
+  },
+  '.cm-panel.cm-search input, .cm-panel.cm-search button': {
+    backgroundColor: 'var(--lf-bg-surface, #1e1e2e)',
+    color: 'var(--lf-text-main, #cdd6f4)',
+    border: '1px solid var(--lf-border, rgba(255,255,255,0.1))',
+    borderRadius: '4px',
+  },
+}, { dark: true });
+
+// Catppuccin-inspired syntax highlight style
+const leetfoxHighlightStyle = HighlightStyle.define([
+  { tag: tags.keyword, color: '#cba6f7' },           // mauve
+  { tag: tags.controlKeyword, color: '#cba6f7' },
+  { tag: tags.moduleKeyword, color: '#cba6f7' },
+  { tag: tags.operatorKeyword, color: '#89dceb' },    // sky
+  { tag: tags.operator, color: '#89dceb' },
+  { tag: tags.typeName, color: '#f9e2af' },           // yellow
+  { tag: tags.className, color: '#f9e2af' },
+  { tag: tags.function(tags.variableName), color: '#89b4fa' },  // blue
+  { tag: tags.definition(tags.function(tags.variableName)), color: '#89b4fa' },
+  { tag: tags.function(tags.propertyName), color: '#89b4fa' },
+  { tag: tags.variableName, color: '#cdd6f4' },       // text
+  { tag: tags.propertyName, color: '#89b4fa' },
+  { tag: tags.bool, color: '#fab387' },                // peach
+  { tag: tags.number, color: '#fab387' },
+  { tag: tags.string, color: '#a6e3a1' },              // green
+  { tag: tags.character, color: '#a6e3a1' },
+  { tag: tags.escape, color: '#f5c2e7' },              // pink
+  { tag: tags.regexp, color: '#f5c2e7' },
+  { tag: tags.comment, color: '#6c7086', fontStyle: 'italic' }, // overlay0
+  { tag: tags.blockComment, color: '#6c7086', fontStyle: 'italic' },
+  { tag: tags.lineComment, color: '#6c7086', fontStyle: 'italic' },
+  { tag: tags.docComment, color: '#6c7086', fontStyle: 'italic' },
+  { tag: tags.meta, color: '#f38ba8' },                // red (preprocessor)
+  { tag: tags.processingInstruction, color: '#f38ba8' },
+  { tag: tags.macroName, color: '#f38ba8' },
+  { tag: tags.annotation, color: '#f9e2af' },
+  { tag: tags.bracket, color: '#9399b2' },             // overlay2
+  { tag: tags.paren, color: '#9399b2' },
+  { tag: tags.squareBracket, color: '#9399b2' },
+  { tag: tags.brace, color: '#9399b2' },
+  { tag: tags.angleBracket, color: '#9399b2' },
+  { tag: tags.separator, color: '#9399b2' },
+  { tag: tags.punctuation, color: '#9399b2' },
+  { tag: tags.self, color: '#f38ba8' },
+  { tag: tags.null, color: '#fab387' },
+  { tag: tags.atom, color: '#fab387' },
+  { tag: tags.labelName, color: '#89dceb' },
+  { tag: tags.namespace, color: '#f9e2af' },
+  { tag: tags.heading, color: '#89b4fa', fontWeight: 'bold' },
+  { tag: tags.invalid, color: '#f38ba8', textDecoration: 'line-through' },
+]);
+
 export class CodeEditorPane {
   private element: HTMLElement;
   private langSelect: HTMLSelectElement;
-  private editorTextarea: HTMLTextAreaElement;
-  private lineNumbers: HTMLElement;
+  private editorView: EditorView | null = null;
+  private cmHost: HTMLElement;
   private testcaseTabContainer: HTMLElement;
   private testcaseBody: HTMLElement;
   private consoleStatusBadge: HTMLElement;
@@ -155,7 +307,7 @@ export class CodeEditorPane {
       type: 'button',
       title: 'Copy code to clipboard',
       onClick: async () => {
-        const ok = await copyToClipboard(this.editorTextarea.value);
+        const ok = await copyToClipboard(this.getCode());
         if (ok) {
           copyBtn.textContent = '✓ Copied!';
           setTimeout(() => { copyBtn.textContent = '📋 Copy'; }, 1500);
@@ -210,20 +362,9 @@ export class CodeEditorPane {
     toolbar.appendChild(rightTools);
     this.element.appendChild(toolbar);
 
-    // 2. Editor Container (Line Numbers + Textarea)
-    const editorWrapper = createElement('div', { className: 'lf-editor-wrapper' });
-    this.lineNumbers = createElement('div', { className: 'lf-line-numbers' }, '1');
-    this.editorTextarea = createElement('textarea', {
-      className: 'lf-editor-textarea',
-      spellcheck: 'false',
-      placeholder: '// Write your solution here...'
-    });
-
-    this.bindEditorEvents();
-
-    editorWrapper.appendChild(this.lineNumbers);
-    editorWrapper.appendChild(this.editorTextarea);
-    this.element.appendChild(editorWrapper);
+    // 2. CodeMirror Editor Host
+    this.cmHost = createElement('div', { className: 'lf-cm-host' });
+    this.element.appendChild(this.cmHost);
 
     // 3. Testcase Console Pane (Examples Preview & Runner)
     const consoleCard = createElement('div', { className: 'lf-console-card' });
@@ -245,18 +386,121 @@ export class CodeEditorPane {
     consoleCard.appendChild(this.testcaseBody);
     this.element.appendChild(consoleCard);
 
-    // Set initial default template synchronously
-    this.editorTextarea.value = SUPPORTED_LANGUAGES[this.currentLanguage]?.defaultCode || '';
-    this.updateLineNumbers();
+    // Initialize CodeMirror with default language
+    this.initCodeMirror(SUPPORTED_LANGUAGES[this.currentLanguage]?.defaultCode || '');
 
     // Load preferred language and saved code asynchronously
     this.initLanguageAndCode();
     this.renderTestcaseTabs();
   }
 
+  private initCodeMirror(initialCode: string): void {
+    // If an editor already exists, destroy it safely
+    if (this.editorView) {
+      try { this.editorView.destroy(); } catch (_) { /* JSDOM compat */ }
+      this.editorView = null;
+    }
+    this.cmHost.innerHTML = '';
+
+    // Ensure the host element's window has requestAnimationFrame/cancelAnimationFrame.
+    // CodeMirror stores `this.win = doc.defaultView` at construction time, and JSDOM
+    // windows may not have cancelAnimationFrame.
+    const hostWin = this.cmHost.ownerDocument?.defaultView as any;
+    if (hostWin) {
+      if (typeof hostWin.requestAnimationFrame !== 'function') {
+        hostWin.requestAnimationFrame = (cb: FrameRequestCallback) => setTimeout(() => cb(Date.now()), 0);
+      }
+      if (typeof hostWin.cancelAnimationFrame !== 'function') {
+        hostWin.cancelAnimationFrame = (id: number) => clearTimeout(id);
+      }
+    }
+
+    const extensions = this.buildExtensions();
+
+    const state = EditorState.create({
+      doc: initialCode,
+      extensions,
+    });
+
+    this.editorView = new EditorView({
+      state,
+      parent: this.cmHost,
+    });
+  }
+
+  private buildExtensions(): Extension[] {
+    return [
+      // Line numbers & active line
+      lineNumbers(),
+      highlightActiveLine(),
+      highlightActiveLineGutter(),
+      foldGutter(),
+
+      // Editor behavior
+      drawSelection(),
+      rectangularSelection(),
+      indentOnInput(),
+      bracketMatching(),
+      closeBrackets(),
+      autocompletion(),
+      highlightSelectionMatches(),
+      history(),
+
+      // Keymaps
+      keymap.of([
+        ...closeBracketsKeymap,
+        ...defaultKeymap,
+        ...searchKeymap,
+        ...historyKeymap,
+        ...foldKeymap,
+        ...completionKeymap,
+        ...lintKeymap,
+        indentWithTab,
+      ]),
+
+      // Language mode
+      getLanguageExtension(this.currentLanguage),
+
+      // Theme: our custom dark theme + syntax highlighting
+      leetfoxDarkTheme,
+      syntaxHighlighting(leetfoxHighlightStyle),
+
+      // Tab size
+      EditorState.tabSize.of(4),
+
+      // Auto-save on document changes
+      EditorView.updateListener.of((update) => {
+        if (update.docChanged) {
+          this.scheduleAutoSave();
+        }
+      }),
+    ];
+  }
+
+  /** Get the current code from the editor */
+  public getCode(): string {
+    if (this.editorView) {
+      return this.editorView.state.doc.toString();
+    }
+    return '';
+  }
+
+  /** Set code in the editor */
+  public setCode(code: string): void {
+    if (this.editorView) {
+      this.editorView.dispatch({
+        changes: {
+          from: 0,
+          to: this.editorView.state.doc.length,
+          insert: code,
+        },
+      });
+    }
+  }
+
   public async runTestcases(runBtn: HTMLButtonElement): Promise<void> {
     if (this.isRunning) return;
-    const code = this.editorTextarea.value.trim();
+    const code = this.getCode().trim();
     if (!code) {
       alert('Please write code before running tests.');
       return;
@@ -320,7 +564,7 @@ export class CodeEditorPane {
   }
 
   private async handleSubmission(submitBtn: HTMLButtonElement): Promise<void> {
-    const code = this.editorTextarea.value.trim();
+    const code = this.getCode().trim();
     if (!code) {
       alert('Please write some code before submitting.');
       return;
@@ -331,7 +575,7 @@ export class CodeEditorPane {
       platform: this.problem.platform,
       problemId: this.problem.id,
       language: this.currentLanguage,
-      code: this.editorTextarea.value,
+      code: this.getCode(),
       timestamp: Date.now()
     });
 
@@ -339,7 +583,7 @@ export class CodeEditorPane {
     submitBtn.disabled = true;
 
     if (this.problem.platform === 'cses') {
-      const res = await subManager.submitCSESDirect(this.problem.id, this.editorTextarea.value, this.currentLanguage);
+      const res = await subManager.submitCSESDirect(this.problem.id, this.getCode(), this.currentLanguage);
       if (res.success && res.resultUrl) {
         submitBtn.textContent = '✓ Submitted!';
         setTimeout(() => {
@@ -451,13 +695,13 @@ export class CodeEditorPane {
       code = SUPPORTED_LANGUAGES[this.currentLanguage]?.defaultCode || '';
     }
 
-    this.editorTextarea.value = code;
-    this.updateLineNumbers();
+    // Recreate editor with correct language mode and code
+    this.initCodeMirror(code);
   }
 
   private async saveCurrentCode(): Promise<void> {
     const key = this.getCodeStorageKey(this.currentLanguage);
-    const code = this.editorTextarea.value;
+    const code = this.getCode();
     try {
       const storageArea = (globalThis as any).browser?.storage?.local || (globalThis as any).chrome?.storage?.local;
       if (storageArea) {
@@ -480,87 +724,9 @@ export class CodeEditorPane {
 
   private resetTemplate(): void {
     if (confirm(`Reset ${SUPPORTED_LANGUAGES[this.currentLanguage]?.name} code to default template?`)) {
-      this.editorTextarea.value = SUPPORTED_LANGUAGES[this.currentLanguage]?.defaultCode || '';
-      this.updateLineNumbers();
+      this.setCode(SUPPORTED_LANGUAGES[this.currentLanguage]?.defaultCode || '');
       this.saveCurrentCode();
     }
-  }
-
-  private bindEditorEvents(): void {
-    // Sync line numbers on scroll
-    this.editorTextarea.addEventListener('scroll', () => {
-      this.lineNumbers.scrollTop = this.editorTextarea.scrollTop;
-    });
-
-    // Auto-indent, Tab key support, and auto-bracket close
-    this.editorTextarea.addEventListener('keydown', (e: KeyboardEvent) => {
-      const start = this.editorTextarea.selectionStart;
-      const end = this.editorTextarea.selectionEnd;
-      const value = this.editorTextarea.value;
-
-      // 1. Auto-bracket pair closing
-      const pairs: Record<string, string> = {
-        '(': ')',
-        '[': ']',
-        '{': '}',
-        '"': '"',
-        "'": "'"
-      };
-
-      if (pairs[e.key]) {
-        e.preventDefault();
-        const selected = value.substring(start, end);
-        const closeChar = pairs[e.key];
-        this.editorTextarea.value = value.substring(0, start) + e.key + selected + closeChar + value.substring(end);
-        this.editorTextarea.selectionStart = start + 1;
-        this.editorTextarea.selectionEnd = start + 1 + selected.length;
-        this.updateLineNumbers();
-        this.scheduleAutoSave();
-        return;
-      }
-
-      // 2. Tab key indentation
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        this.editorTextarea.value = value.substring(0, start) + '    ' + value.substring(end);
-        this.editorTextarea.selectionStart = this.editorTextarea.selectionEnd = start + 4;
-        this.updateLineNumbers();
-        this.scheduleAutoSave();
-        return;
-      }
-
-      // 3. Enter key with smart indentation
-      if (e.key === 'Enter') {
-        const lineStart = value.lastIndexOf('\n', start - 1) + 1;
-        const currentLine = value.substring(lineStart, start);
-        const match = currentLine.match(/^\s*/);
-        const indent = match ? match[0] : '';
-
-        // Check if cursor is between { and }
-        const isBetweenBraces = value[start - 1] === '{' && value[end] === '}';
-
-        e.preventDefault();
-        if (isBetweenBraces) {
-          const insertion = '\n' + indent + '    \n' + indent;
-          this.editorTextarea.value = value.substring(0, start) + insertion + value.substring(end);
-          this.editorTextarea.selectionStart = this.editorTextarea.selectionEnd = start + indent.length + 5;
-        } else {
-          const extraIndent = currentLine.trim().endsWith('{') ? '    ' : '';
-          const insertion = '\n' + indent + extraIndent;
-          this.editorTextarea.value = value.substring(0, start) + insertion + value.substring(end);
-          this.editorTextarea.selectionStart = this.editorTextarea.selectionEnd = start + insertion.length;
-        }
-
-        this.updateLineNumbers();
-        this.scheduleAutoSave();
-        return;
-      }
-    });
-
-    this.editorTextarea.addEventListener('input', () => {
-      this.updateLineNumbers();
-      this.scheduleAutoSave();
-    });
   }
 
   private scheduleAutoSave(): void {
@@ -568,15 +734,6 @@ export class CodeEditorPane {
     this.saveTimeout = setTimeout(() => {
       this.saveCurrentCode();
     }, 400);
-  }
-
-  private updateLineNumbers(): void {
-    const lines = (this.editorTextarea.value || '').split('\n').length;
-    let numbersStr = '';
-    for (let i = 1; i <= lines; i++) {
-      numbersStr += `${i}\n`;
-    }
-    this.lineNumbers.textContent = numbersStr;
   }
 
   private renderTestcaseTabs(): void {
