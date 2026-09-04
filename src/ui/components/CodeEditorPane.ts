@@ -651,6 +651,14 @@ export class CodeEditorPane {
     submitBtn.disabled = true;
 
     if (this.problem.platform === 'cses') {
+      // Check login status upfront from the page DOM
+      if (!subManager.isUserLoggedInOnCSES(document)) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '🚀 Submit';
+        this.showNotLoggedInModal();
+        return;
+      }
+
       submitBtn.textContent = '⏳ Sending to CSES...';
       const res = await subManager.submitCSESDirect(this.problem.id, this.getCode(), this.currentLanguage);
       if (res.success && res.resultUrl) {
@@ -669,15 +677,10 @@ export class CodeEditorPane {
           return;
         }
 
-        // Direct failed for other reasons, navigate to submit page with pending auto-fill
-        if (this.problem.submitUrl) {
-          submitBtn.textContent = '⏳ Redirecting to Submit...';
-          window.location.href = this.problem.submitUrl;
-          return;
-        } else {
-          alert(`CSES Submission Notice: ${res.error || 'Could not submit directly'}. Please ensure you are logged in to CSES.`);
-        }
+        // Show the actual error message from CSES
+        alert(`CSES Submission Error:\n\n${res.error || 'Failed to submit solution.'}\n\nPlease check your login status and try again.`);
       }
+      return;
     }
 
     // Codeforces flow: Navigate to submit page with auto-fill & auto-submit pending

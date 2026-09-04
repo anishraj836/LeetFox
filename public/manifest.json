@@ -5,7 +5,8 @@
   "description": "Modern, fast, keyboard-friendly competitive programming interface for Codeforces and CSES.",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "cookies"
   ],
   "host_permissions": [
     "*://codeforces.com/*",

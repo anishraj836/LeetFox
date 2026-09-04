@@ -91,40 +91,46 @@ export class SubmissionManager {
   /**
    * Submit to CSES seamlessly via in-page fetch using the user's active session.
    */
+  /**
+   * Fast synchronous check whether user is authenticated on CSES based on page DOM
+   */
+  public isUserLoggedInOnCSES(doc: Document = document): boolean {
+    // If there is an explicit login link in header controls, user is not logged in
+    const loginLink = doc.querySelector('.header .controls a[href*="/login"], a.account[href*="/login"], a[href="/login"]');
+    if (loginLink) return false;
+
+    // If there is an account link with a username that is not login, user is logged in
+    const accountLink = doc.querySelector('.header .controls a.account, .header a.account');
+    if (accountLink && !accountLink.getAttribute('href')?.includes('/login')) {
+      return true;
+    }
+
+    // Check if logout link exists
+    const logoutLink = doc.querySelector('a[href*="/logout"]');
+    if (logoutLink) return true;
+
+    // Check if submit tab exists in problem navigation
+    const submitTab = doc.querySelector('.title-block .nav a[href*="/submit/"], .nav a[href*="/submit/"]');
+    if (submitTab) return true;
+
+    return true;
+  }
+
+  /**
+   * Submit to CSES seamlessly via in-page fetch using the user's active session.
+   */
   public async submitCSESDirect(
     taskId: string,
     code: string,
     language: string
   ): Promise<{ success: boolean; resultUrl?: string; error?: string }> {
-    // 1. First attempt submission via background script (privileged extension context)
-    try {
-      const runtime = (globalThis as any).browser?.runtime || (globalThis as any).chrome?.runtime;
-      if (runtime && typeof runtime.sendMessage === 'function') {
-        const bgRes = await new Promise<any>((resolve) => {
-          try {
-            const maybePromise = runtime.sendMessage(
-              { type: 'CSES_DIRECT_SUBMIT', taskId, code, language },
-              (response: any) => {
-                if (response !== undefined) resolve(response);
-              }
-            );
-            if (maybePromise instanceof Promise) {
-              maybePromise.then(resolve).catch(() => resolve(null));
-            }
-          } catch (_) {
-            resolve(null);
-          }
-        });
+    const origin = typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'https://cses.fi';
+    const submitPageUrl = `${origin}/problemset/submit/${taskId}/`;
 
-        if (bgRes && typeof bgRes === 'object' && ('success' in bgRes)) {
-          return bgRes;
-        }
-      }
-    } catch (_) {}
-
-    // 2. Direct in-page fetch fallback (for test environments or standalone execution)
     try {
-      const submitPageUrl = `https://cses.fi/problemset/submit/${taskId}/`;
+      // 1. Fetch submit page to obtain CSRF token and verify active session
       const pageRes = await fetch(submitPageUrl, { credentials: 'include' });
       if (!pageRes.ok || pageRes.url.includes('/login')) {
         return {
@@ -134,23 +140,42 @@ export class SubmissionManager {
       }
 
       const html = await pageRes.text();
-      const tokenMatch = html.match(/name=["']csrf_token["'][^>]*value=["']([^"']+)["']/i)
-        || html.match(/value=["']([^"']+)["'][^>]*name=["']csrf_token["']/i);
 
-      if (!tokenMatch) {
+      // Extract csrf_token reliably
+      let csrfToken = '';
+      try {
+        if (typeof DOMParser !== 'undefined') {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const csrfInput = doc.querySelector('input[name="csrf_token"]') as HTMLInputElement;
+          if (csrfInput?.value) {
+            csrfToken = csrfInput.value;
+          }
+        }
+      } catch (_) {}
+
+      if (!csrfToken) {
+        const tokenMatch = html.match(/name=["']?csrf_token["']?[^>]*value=["']?([a-zA-Z0-9_-]+)["']?/i)
+          || html.match(/value=["']?([a-zA-Z0-9_-]+)["']?[^>]*name=["']?csrf_token["']?/i);
+        if (tokenMatch) {
+          csrfToken = tokenMatch[1];
+        }
+      }
+
+      if (!csrfToken) {
         return {
           success: false,
           error: 'Could not find CSRF token on CSES. Please ensure you are logged in.'
         };
       }
 
-      const csrfToken = tokenMatch[1];
       const filename = this.getFilenameForLanguage(language);
-      const file = new File([code], filename, { type: 'text/plain' });
+      const blob = new Blob([code], { type: 'text/plain' });
 
       const formData = new FormData();
       formData.append('csrf_token', csrfToken);
-      formData.append('file', file);
+      formData.append('file', blob, filename);
+      formData.append('submit', 'Submit');
 
       const postRes = await fetch(submitPageUrl, {
         method: 'POST',
@@ -164,9 +189,22 @@ export class SubmissionManager {
         if (finalUrl.includes('/login')) {
           return { success: false, error: 'You must be logged in to CSES to submit. Please log in to your CSES account.' };
         }
+
+        // Check if response contains an error message from CSES
+        try {
+          const resText = await postRes.text();
+          if (typeof DOMParser !== 'undefined') {
+            const resDoc = new DOMParser().parseFromString(resText, 'text/html');
+            const errorEl = resDoc.querySelector('p.error, .error, .alert-danger');
+            if (errorEl && errorEl.textContent?.trim()) {
+              return { success: false, error: errorEl.textContent.trim() };
+            }
+          }
+        } catch (_) {}
+
         return {
           success: true,
-          resultUrl: finalUrl.includes('/result/') ? finalUrl : `https://cses.fi/problemset/result/${taskId}/`
+          resultUrl: finalUrl.includes('/result/') ? finalUrl : `${origin}/problemset/result/${taskId}/`
         };
       }
 
