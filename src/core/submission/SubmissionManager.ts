@@ -96,6 +96,33 @@ export class SubmissionManager {
     code: string,
     language: string
   ): Promise<{ success: boolean; resultUrl?: string; error?: string }> {
+    // 1. First attempt submission via background script (privileged extension context)
+    try {
+      const runtime = (globalThis as any).browser?.runtime || (globalThis as any).chrome?.runtime;
+      if (runtime && typeof runtime.sendMessage === 'function') {
+        const bgRes = await new Promise<any>((resolve) => {
+          try {
+            const maybePromise = runtime.sendMessage(
+              { type: 'CSES_DIRECT_SUBMIT', taskId, code, language },
+              (response: any) => {
+                if (response !== undefined) resolve(response);
+              }
+            );
+            if (maybePromise instanceof Promise) {
+              maybePromise.then(resolve).catch(() => resolve(null));
+            }
+          } catch (_) {
+            resolve(null);
+          }
+        });
+
+        if (bgRes && typeof bgRes === 'object' && ('success' in bgRes)) {
+          return bgRes;
+        }
+      }
+    } catch (_) {}
+
+    // 2. Direct in-page fetch fallback (for test environments or standalone execution)
     try {
       const submitPageUrl = `https://cses.fi/problemset/submit/${taskId}/`;
       const pageRes = await fetch(submitPageUrl, { credentials: 'include' });
@@ -230,9 +257,24 @@ export class SubmissionManager {
 
       let countdownTimer: any = null;
 
-      const triggerSubmit = () => {
+      const triggerSubmit = async () => {
         if (countdownTimer) clearInterval(countdownTimer);
-        bannerSub.textContent = 'Submitting code now... 🚀';
+        bannerSub.textContent = 'Submitting code to CSES now... 🚀';
+        
+        // Attempt privileged direct submission via background script
+        const res = await this.submitCSESDirect(taskId, codeToSubmit, lang);
+        if (res.success && res.resultUrl) {
+          window.location.href = res.resultUrl;
+          return;
+        }
+
+        // If user is not logged in, direct to login page
+        if (res.error && res.error.includes('logged in')) {
+          window.location.href = 'https://cses.fi/login';
+          return;
+        }
+
+        // Fallback to DOM submission
         const actualSubmitBtn = form.querySelector('input[type="submit"], button[type="submit"]') as HTMLElement;
         if (actualSubmitBtn) {
           actualSubmitBtn.click();

@@ -671,8 +671,11 @@ export class CodeEditorPane {
 
         // Direct failed for other reasons, navigate to submit page with pending auto-fill
         if (this.problem.submitUrl) {
+          submitBtn.textContent = '⏳ Redirecting to Submit...';
           window.location.href = this.problem.submitUrl;
           return;
+        } else {
+          alert(`CSES Submission Notice: ${res.error || 'Could not submit directly'}. Please ensure you are logged in to CSES.`);
         }
       }
     }
