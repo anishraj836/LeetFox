@@ -36,7 +36,7 @@ export class CSESParser {
         limits,
         navigation,
         url: url.href,
-        submitUrl: this.extractSubmitUrl(doc, url),
+        submitUrl: this.extractSubmitUrl(doc, url, id),
         solutionsUrl,
         isLiveContest: false
       };
@@ -300,11 +300,14 @@ export class CSESParser {
     };
   }
 
-  private extractSubmitUrl(doc: Document, currentUrl: URL): string | undefined {
+  private extractSubmitUrl(doc: Document, currentUrl: URL, taskId?: string): string | undefined {
     const submitTab = doc.querySelector(CSES_SELECTORS.submitTab);
     if (submitTab) {
       const href = submitTab.getAttribute('href');
       if (href) return new URL(href, currentUrl).href;
+    }
+    if (taskId) {
+      return `https://cses.fi/problemset/submit/${taskId}/`;
     }
     return undefined;
   }

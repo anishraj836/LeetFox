@@ -1101,9 +1101,16 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   padding: 12px 14px !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 10px !important;
-  max-height: 200px !important;
+  gap: 12px !important;
+  min-height: 150px !important;
+  max-height: 280px !important;
   overflow-y: auto !important;
+}
+
+.lf-console-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  gap: 10px !important;
 }
 
 .lf-console-io-block {
@@ -1114,16 +1121,19 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
 
 .lf-console-io-title {
   font-size: 11px !important;
-  font-weight: 600 !important;
-  color: var(--lf-text-muted) !important;
+  font-weight: 700 !important;
+  color: var(--lf-text-secondary) !important;
   text-transform: uppercase !important;
   letter-spacing: 0.05em !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 4px !important;
 }
 
 .lf-console-pre {
   background-color: var(--lf-code-bg) !important;
-  padding: 6px 10px !important;
-  border-radius: 4px !important;
+  padding: 8px 10px !important;
+  border-radius: 6px !important;
   border: 1px solid var(--lf-code-border) !important;
   font-family: var(--lf-font-mono) !important;
   font-size: 12px !important;
@@ -1131,7 +1141,33 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   color: var(--lf-text-main) !important;
   margin: 0 !important;
   white-space: pre-wrap !important;
+  min-height: 38px !important;
+  word-break: break-all !important;
 }
+
+.lf-console-pre.output-empty {
+  color: var(--lf-text-muted) !important;
+  font-style: italic !important;
+}
+
+.lf-btn-suggestions {
+  font-size: 12px !important;
+  padding: 4px 10px !important;
+  border-radius: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.lf-btn-suggestions.active {
+  background-color: rgba(137, 180, 250, 0.15) !important;
+  border-color: var(--lf-accent) !important;
+  color: var(--lf-accent) !important;
+}
+
+.lf-btn-suggestions.inactive {
+  opacity: 0.6 !important;
+  color: var(--lf-text-muted) !important;
+}
+
 
 /* Solutions Button and Live Contest Lock */
 .lf-btn-locked {

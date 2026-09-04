@@ -7,6 +7,8 @@ export interface UserPreferences {
   fontSize: FontSize;
   hideOriginalPage: boolean;
   autoCopyExampleOnClick: boolean;
+  editorSuggestions?: boolean;
+  defaultLanguage?: string;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -15,4 +17,6 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   fontSize: 'medium',
   hideOriginalPage: true,
   autoCopyExampleOnClick: true,
+  editorSuggestions: true,
 };
+

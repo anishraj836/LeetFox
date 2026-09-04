@@ -46,7 +46,7 @@ export class CodeforcesParser {
         contest,
         navigation,
         url: url.href,
-        submitUrl: this.extractSubmitUrl(doc, url),
+        submitUrl: this.extractSubmitUrl(doc, url, urlInfo),
         solutionsUrl,
         editorialUrl,
         isLiveContest
@@ -324,13 +324,16 @@ export class CodeforcesParser {
     return nav;
   }
 
-  private extractSubmitUrl(doc: Document, currentUrl: URL): string | undefined {
+  private extractSubmitUrl(doc: Document, currentUrl: URL, urlInfo?: { contestId: string; index: string }): string | undefined {
     const submitLink = doc.querySelector(CODEFORCES_SELECTORS.submitLink);
     if (submitLink) {
       const href = submitLink.getAttribute('href');
       if (href) return new URL(href, currentUrl).href;
     }
-    return undefined;
+    if (urlInfo?.contestId) {
+      return `https://${currentUrl.hostname}/contest/${urlInfo.contestId}/submit`;
+    }
+    return `https://${currentUrl.hostname}/problemset/submit`;
   }
 
   public detectLiveContest(doc: Document, url: URL): boolean {

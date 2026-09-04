@@ -3,9 +3,10 @@ import { createElement, copyToClipboard } from '../../core/utils/dom';
 import { StorageManager } from '../../core/storage/StorageManager';
 import { SubmissionManager } from '../../core/submission/SubmissionManager';
 import { CodeRunner, type ExecutionResult } from '../../core/runner/CodeRunner';
+import { CompletionTrie, createTrieForLanguage, createTrieCompletionSource } from '../../core/editor/CompletionTrie';
 
 // CodeMirror 6 imports
-import { EditorState, type Extension } from '@codemirror/state';
+import { EditorState, Compartment, type Extension } from '@codemirror/state';
 import { EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter, drawSelection, rectangularSelection } from '@codemirror/view';
 import { defaultKeymap, indentWithTab, history, historyKeymap } from '@codemirror/commands';
 import { syntaxHighlighting, indentOnInput, bracketMatching, foldGutter, foldKeymap, HighlightStyle } from '@codemirror/language';
@@ -273,9 +274,16 @@ export class CodeEditorPane {
   private testResults: Map<number, ExecutionResult> = new Map();
   private isRunning = false;
 
+  // Trie-based Autocomplete & Compartment
+  private trie: CompletionTrie;
+  private completionCompartment: Compartment = new Compartment();
+  private suggestionsEnabled = true;
+  private suggestionsBtn!: HTMLButtonElement;
+
   constructor(private problem: Problem) {
     this.storage = StorageManager.getInstance();
     this.runner = CodeRunner.getInstance();
+    this.trie = createTrieForLanguage(this.currentLanguage);
     this.element = createElement('div', { className: 'lf-code-pane' });
 
     // 1. Editor Toolbar
@@ -292,6 +300,15 @@ export class CodeEditorPane {
     });
 
     leftTools.appendChild(this.langSelect);
+
+    // Suggestions Toggle Button
+    this.suggestionsBtn = createElement('button', {
+      className: 'lf-btn lf-btn-suggestions active',
+      type: 'button',
+      title: 'Toggle Trie-based Autocomplete Suggestions (vector, map, stl, snippets)',
+      onClick: () => this.toggleSuggestions()
+    }, '✨ Suggestions: ON');
+    leftTools.appendChild(this.suggestionsBtn);
 
     const rightTools = createElement('div', { className: 'lf-editor-tools-right' });
 
@@ -402,9 +419,7 @@ export class CodeEditorPane {
     }
     this.cmHost.innerHTML = '';
 
-    // Ensure the host element's window has requestAnimationFrame/cancelAnimationFrame.
-    // CodeMirror stores `this.win = doc.defaultView` at construction time, and JSDOM
-    // windows may not have cancelAnimationFrame.
+    // Ensure the host element's window has requestAnimationFrame/cancelAnimationFrame for CodeMirror
     const hostWin = this.cmHost.ownerDocument?.defaultView as any;
     if (hostWin) {
       if (typeof hostWin.requestAnimationFrame !== 'function') {
@@ -414,6 +429,9 @@ export class CodeEditorPane {
         hostWin.cancelAnimationFrame = (id: number) => clearTimeout(id);
       }
     }
+
+    // Index initial code tokens into the Trie
+    this.trie.indexDocumentTokens(initialCode);
 
     const extensions = this.buildExtensions();
 
@@ -429,6 +447,14 @@ export class CodeEditorPane {
   }
 
   private buildExtensions(): Extension[] {
+    const autocompleteExtension = this.suggestionsEnabled
+      ? autocompletion({
+          override: [createTrieCompletionSource(this.trie)],
+          activateOnTyping: true,
+          defaultKeymap: true
+        })
+      : [];
+
     return [
       // Line numbers & active line
       lineNumbers(),
@@ -442,9 +468,11 @@ export class CodeEditorPane {
       indentOnInput(),
       bracketMatching(),
       closeBrackets(),
-      autocompletion(),
       highlightSelectionMatches(),
       history(),
+
+      // Trie Autocompletion compartment for dynamic toggling
+      this.completionCompartment.of(autocompleteExtension),
 
       // Keymaps
       keymap.of([
@@ -468,13 +496,47 @@ export class CodeEditorPane {
       // Tab size
       EditorState.tabSize.of(4),
 
-      // Auto-save on document changes
+      // Auto-save on document changes and index words dynamically
       EditorView.updateListener.of((update) => {
         if (update.docChanged) {
+          const docText = update.state.doc.toString();
+          this.trie.indexDocumentTokens(docText);
           this.scheduleAutoSave();
         }
       }),
     ];
+  }
+
+  /**
+   * Toggle Trie-based autocompletion on/off dynamically
+   */
+  public toggleSuggestions(): void {
+    this.suggestionsEnabled = !this.suggestionsEnabled;
+
+    if (this.suggestionsEnabled) {
+      this.suggestionsBtn.className = 'lf-btn lf-btn-suggestions active';
+      this.suggestionsBtn.textContent = '✨ Suggestions: ON';
+    } else {
+      this.suggestionsBtn.className = 'lf-btn lf-btn-suggestions inactive';
+      this.suggestionsBtn.textContent = '💤 Suggestions: OFF';
+    }
+
+    if (this.editorView) {
+      const newExtension = this.suggestionsEnabled
+        ? autocompletion({
+            override: [createTrieCompletionSource(this.trie)],
+            activateOnTyping: true,
+            defaultKeymap: true
+          })
+        : [];
+
+      this.editorView.dispatch({
+        effects: this.completionCompartment.reconfigure(newExtension)
+      });
+    }
+
+    // Persist preference
+    this.storage.savePreferences({ editorSuggestions: this.suggestionsEnabled }).catch(() => {});
   }
 
   /** Get the current code from the editor */
@@ -495,6 +557,7 @@ export class CodeEditorPane {
           insert: code,
         },
       });
+      this.trie.indexDocumentTokens(code);
     }
   }
 
@@ -519,7 +582,7 @@ export class CodeEditorPane {
     this.consoleStatusBadge.textContent = 'Running tests...';
 
     try {
-      // Run the currently active testcase first
+      // Run the currently active testcase
       const currentEx = examples[this.activeExampleIndex] || examples[0];
       const result = await this.runner.runTestcase(
         this.currentLanguage,
@@ -531,6 +594,11 @@ export class CodeEditorPane {
       this.testResults.set(this.activeExampleIndex, result);
       this.updateStatusBadge(result);
       this.renderTestcaseTabs();
+
+      // Scroll console body to top so the output grid is immediately visible
+      if (this.testcaseBody) {
+        this.testcaseBody.scrollTop = 0;
+      }
     } catch (err: any) {
       this.consoleStatusBadge.className = 'lf-console-status-badge error';
       this.consoleStatusBadge.textContent = 'Error executing code';
@@ -547,7 +615,7 @@ export class CodeEditorPane {
       this.consoleStatusBadge.textContent = `✓ Accepted (${result.executionTimeMs || 0}ms)`;
     } else if (result.status === 'wrong_answer') {
       this.consoleStatusBadge.className = 'lf-console-status-badge wrong-answer';
-      this.consoleStatusBadge.textContent = '✕ Wrong Answer';
+      this.consoleStatusBadge.textContent = `✕ Wrong Answer (${result.executionTimeMs || 0}ms)`;
     } else if (result.status === 'compile_error') {
       this.consoleStatusBadge.className = 'lf-console-status-badge compile-error';
       this.consoleStatusBadge.textContent = '⚠️ Compilation Error';
@@ -583,6 +651,7 @@ export class CodeEditorPane {
     submitBtn.disabled = true;
 
     if (this.problem.platform === 'cses') {
+      submitBtn.textContent = '⏳ Sending to CSES...';
       const res = await subManager.submitCSESDirect(this.problem.id, this.getCode(), this.currentLanguage);
       if (res.success && res.resultUrl) {
         submitBtn.textContent = '✓ Submitted!';
@@ -608,12 +677,10 @@ export class CodeEditorPane {
       }
     }
 
-    // Codeforces flow: Navigate to submit page with auto-fill pending
-    if (this.problem.submitUrl) {
-      window.location.href = this.problem.submitUrl;
-    } else {
-      window.location.href = this.problem.url;
-    }
+    // Codeforces flow: Navigate to submit page with auto-fill & auto-submit pending
+    submitBtn.textContent = '⏳ Opening Submit...';
+    const targetUrl = this.problem.submitUrl || `https://${new URL(this.problem.url).hostname}/problemset/submit`;
+    window.location.href = targetUrl;
   }
 
   private showNotLoggedInModal(): void {
@@ -662,6 +729,16 @@ export class CodeEditorPane {
     const preferredLang = (prefs as any).defaultLanguage || 'cpp';
     this.currentLanguage = SUPPORTED_LANGUAGES[preferredLang] ? preferredLang : 'cpp';
     this.langSelect.value = this.currentLanguage;
+
+    // Load suggestions preference
+    if (prefs.editorSuggestions !== undefined) {
+      this.suggestionsEnabled = prefs.editorSuggestions;
+      if (!this.suggestionsEnabled) {
+        this.suggestionsBtn.className = 'lf-btn lf-btn-suggestions inactive';
+        this.suggestionsBtn.textContent = '💤 Suggestions: OFF';
+      }
+    }
+
     await this.loadCodeForCurrentLanguage();
   }
 
@@ -719,6 +796,7 @@ export class CodeEditorPane {
   private async switchLanguage(newLang: string): Promise<void> {
     await this.saveCurrentCode();
     this.currentLanguage = newLang;
+    this.trie = createTrieForLanguage(newLang);
     await this.loadCodeForCurrentLanguage();
   }
 
@@ -771,45 +849,70 @@ export class CodeEditorPane {
     if (activeExample) {
       this.testcaseBody.innerHTML = '';
 
+      // Responsive 2 or 3-column grid for Input, Your Output, Expected Output
+      const grid = createElement('div', { className: 'lf-console-grid' });
+
+      // 1. Input Block
       const inputBlock = createElement('div', { className: 'lf-console-io-block' });
-      const inputTitle = createElement('div', { className: 'lf-console-io-title' }, 'Input:');
+      const inputTitle = createElement('div', { className: 'lf-console-io-title' }, '📥 Input');
       const inputPre = createElement('pre', { className: 'lf-console-pre' }, activeExample.input);
       inputBlock.appendChild(inputTitle);
       inputBlock.appendChild(inputPre);
+      grid.appendChild(inputBlock);
 
+      // Check if test has been run
+      const testResult = this.testResults.get(this.activeExampleIndex);
+
+      // 2. Your Output Block (always shown if test has run!)
+      if (testResult) {
+        const actualBlock = createElement('div', { className: 'lf-console-io-block' });
+        const actualTitle = createElement('div', { className: 'lf-console-io-title' }, '📤 Your Output');
+        
+        let outputText = testResult.programOutput || '';
+        let isOutputEmpty = false;
+
+        if (outputText.trim().length === 0) {
+          isOutputEmpty = true;
+          if (testResult.status === 'compile_error') {
+            outputText = '<compilation failed>';
+          } else if (testResult.status === 'timeout') {
+            outputText = '<time limit exceeded>';
+          } else {
+            outputText = '<no output produced>';
+          }
+        }
+
+        const isAccepted = testResult.status === 'accepted';
+        const actualPre = createElement('pre', {
+          className: `lf-console-pre ${isAccepted ? 'output-accepted' : 'output-wrong'} ${isOutputEmpty ? 'output-empty' : ''}`
+        }, outputText);
+
+        actualBlock.appendChild(actualTitle);
+        actualBlock.appendChild(actualPre);
+        grid.appendChild(actualBlock);
+      }
+
+      // 3. Expected Output Block
       const outputBlock = createElement('div', { className: 'lf-console-io-block' });
-      const outputTitle = createElement('div', { className: 'lf-console-io-title' }, 'Expected Output:');
+      const outputTitle = createElement('div', { className: 'lf-console-io-title' }, '🎯 Expected Output');
       const outputPre = createElement('pre', { className: 'lf-console-pre' }, activeExample.output);
       outputBlock.appendChild(outputTitle);
       outputBlock.appendChild(outputPre);
+      grid.appendChild(outputBlock);
 
-      this.testcaseBody.appendChild(inputBlock);
-      this.testcaseBody.appendChild(outputBlock);
+      this.testcaseBody.appendChild(grid);
 
-      // If test has been run, show Program Output or Error
-      const testResult = this.testResults.get(this.activeExampleIndex);
-      if (testResult) {
-        if (testResult.programOutput) {
-          const actualBlock = createElement('div', { className: 'lf-console-io-block' });
-          const actualTitle = createElement('div', { className: 'lf-console-io-title' }, 'Your Output:');
-          const actualPre = createElement('pre', {
-            className: `lf-console-pre ${testResult.status === 'accepted' ? 'output-accepted' : 'output-wrong'}`
-          }, testResult.programOutput);
-          actualBlock.appendChild(actualTitle);
-          actualBlock.appendChild(actualPre);
-          this.testcaseBody.appendChild(actualBlock);
-        }
-
-        if (testResult.compilerError || testResult.programError) {
-          const errorBlock = createElement('div', { className: 'lf-console-io-block' });
-          const errorTitle = createElement('div', { className: 'lf-console-io-title' }, 'Diagnostics / Errors:');
-          const errorPre = createElement('pre', {
-            className: 'lf-console-pre output-error'
-          }, testResult.compilerError || testResult.programError || '');
-          errorBlock.appendChild(errorTitle);
-          errorBlock.appendChild(errorPre);
-          this.testcaseBody.appendChild(errorBlock);
-        }
+      // 4. Compiler Errors / Runtime Diagnostics (if any)
+      if (testResult && (testResult.compilerError || testResult.programError)) {
+        const errorBlock = createElement('div', { className: 'lf-console-io-block', style: 'margin-top: 6px;' });
+        const errorTitle = createElement('div', { className: 'lf-console-io-title' }, '⚠️ Diagnostics / Stderr');
+        const errorText = testResult.compilerError || testResult.programError || '';
+        const errorPre = createElement('pre', {
+          className: 'lf-console-pre output-error'
+        }, errorText);
+        errorBlock.appendChild(errorTitle);
+        errorBlock.appendChild(errorPre);
+        this.testcaseBody.appendChild(errorBlock);
       }
     }
   }

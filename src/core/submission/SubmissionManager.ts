@@ -205,12 +205,13 @@ export class SubmissionManager {
         const dt = new DataTransfer();
         dt.items.add(file);
         fileInput.files = dt.files;
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
     } catch (e) {
       console.warn('[Leetfox] Could not set DataTransfer files on CSES file input', e);
     }
 
-    // Inject modern Leetfox confirmation banner
+    // Inject modern Leetfox confirmation banner with auto-submit countdown
     if (!doc.getElementById('lf-cses-submit-banner')) {
       const banner = createElement('div', {
         id: 'lf-cses-submit-banner',
@@ -220,28 +221,65 @@ export class SubmissionManager {
       const icon = createElement('span', { className: 'lf-banner-icon' }, '🦊');
       const textGroup = createElement('div', { className: 'lf-banner-text' });
       const bannerTitle = createElement('strong', {}, `Leetfox ready to submit for Task ${taskId}`);
-      const bannerSub = createElement('p', {}, `Attached ${filename} (${codeToSubmit.split('\n').length} lines). Click "Submit Now" below!`);
+      
+      let secondsLeft = 3;
+      const bannerSub = createElement('p', {}, `Attached ${filename}. Auto-submitting in ${secondsLeft}s...`);
 
       textGroup.appendChild(bannerTitle);
       textGroup.appendChild(bannerSub);
 
+      let countdownTimer: any = null;
+
+      const triggerSubmit = () => {
+        if (countdownTimer) clearInterval(countdownTimer);
+        bannerSub.textContent = 'Submitting code now... 🚀';
+        const actualSubmitBtn = form.querySelector('input[type="submit"], button[type="submit"]') as HTMLElement;
+        if (actualSubmitBtn) {
+          actualSubmitBtn.click();
+        } else {
+          form.submit();
+        }
+      };
+
       const submitNowBtn = createElement('button', {
         className: 'lf-btn lf-btn-primary',
         type: 'button',
-        title: 'Submit this code now',
-        onClick: () => {
-          const actualSubmitBtn = form.querySelector('input[type="submit"], button[type="submit"]') as HTMLElement;
-          if (actualSubmitBtn) {
-            actualSubmitBtn.click();
-          } else {
-            form.submit();
-          }
-        }
+        title: 'Submit this code immediately',
+        onClick: triggerSubmit
       }, 'Submit Now 🚀');
+
+      const cancelBtn = createElement('button', {
+        className: 'lf-btn',
+        type: 'button',
+        title: 'Cancel auto-submission to edit or review',
+        onClick: () => {
+          if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+          }
+          bannerSub.textContent = `Attached ${filename}. Auto-submit paused. Click "Submit Now" when ready.`;
+          cancelBtn.style.display = 'none';
+        }
+      }, 'Cancel ⏸️');
+
+      countdownTimer = setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft <= 0) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+          triggerSubmit();
+        } else {
+          bannerSub.textContent = `Attached ${filename}. Auto-submitting in ${secondsLeft}s...`;
+        }
+      }, 1000);
+
+      const btnGroup = createElement('div', { style: 'display: flex; gap: 8px; align-items: center;' });
+      btnGroup.appendChild(cancelBtn);
+      btnGroup.appendChild(submitNowBtn);
 
       banner.appendChild(icon);
       banner.appendChild(textGroup);
-      banner.appendChild(submitNowBtn);
+      banner.appendChild(btnGroup);
 
       form.parentNode?.insertBefore(banner, form);
     }
@@ -292,25 +330,58 @@ export class SubmissionManager {
     const form = doc.querySelector('form.submitForm, form[action*="/submit"]') as HTMLFormElement;
     if (!form) return false;
 
-    // Set problem code if field is present
-    const problemInput = form.querySelector('input[name="submittedProblemCode"]') as HTMLInputElement;
-    if (problemInput && !problemInput.value) {
-      problemInput.value = pending.problemId;
+    // Parse problemId into contestId and index if possible
+    // e.g. "4A" -> contestId "4", index "A"
+    const match = pending.problemId.match(/^(\d+)([A-Za-z0-9]+)$/);
+    const index = match ? match[2] : pending.problemId;
+
+    // 1. Contest submit pages often have select[name="submittedProblemIndex"]
+    const problemSelect = form.querySelector('select[name="submittedProblemIndex"]') as HTMLSelectElement;
+    if (problemSelect) {
+      const option = Array.from(problemSelect.options).find(o => 
+        o.value.toUpperCase() === index.toUpperCase() ||
+        o.text.trim().toUpperCase().startsWith(index.toUpperCase())
+      );
+      if (option) {
+        problemSelect.value = option.value;
+        problemSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
     }
 
-    // Set language dropdown on Codeforces submit form
+    // 2. Problemset and contest submit pages with input[name="submittedProblemCode"]
+    const problemInput = form.querySelector('input[name="submittedProblemCode"]') as HTMLInputElement;
+    if (problemInput) {
+      problemInput.value = pending.problemId;
+      problemInput.dispatchEvent(new Event('input', { bubbles: true }));
+      problemInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    // 3. Set language dropdown on Codeforces submit form
     const langSelect = form.querySelector('select[name="programTypeId"]') as HTMLSelectElement;
     if (langSelect) {
       this.selectMatchingCodeforcesLanguage(langSelect, pending.language);
     }
 
-    // Fill source code
+    // 4. Fill source code in textarea
     const textarea = form.querySelector('textarea#sourceCodeTextarea, textarea[name="source"]') as HTMLTextAreaElement;
     if (textarea) {
       textarea.value = pending.code;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new Event('change', { bubbles: true }));
     }
 
-    // Attach file if file input exists
+    // 5. Update Ace Editor if active on page
+    try {
+      const win = doc.defaultView as any;
+      if (win && win.ace && typeof win.ace.edit === 'function') {
+        const aceEditor = win.ace.edit('editor');
+        if (aceEditor && typeof aceEditor.setValue === 'function') {
+          aceEditor.setValue(pending.code, 1);
+        }
+      }
+    } catch (_) {}
+
+    // 6. Attach file if file input exists
     const fileInput = form.querySelector('input[type="file"][name="sourceFile"]') as HTMLInputElement;
     if (fileInput) {
       const filename = this.getFilenameForLanguage(pending.language);
@@ -320,11 +391,12 @@ export class SubmissionManager {
           const dt = new DataTransfer();
           dt.items.add(file);
           fileInput.files = dt.files;
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
         }
       } catch (_) {}
     }
 
-    // Inject Leetfox Banner
+    // 7. Inject Leetfox Confirmation Banner with 3s auto-submit countdown
     if (!doc.getElementById('lf-cf-submit-banner')) {
       const banner = createElement('div', {
         id: 'lf-cf-submit-banner',
@@ -334,24 +406,65 @@ export class SubmissionManager {
       const icon = createElement('span', { className: 'lf-banner-icon' }, '🦊');
       const textGroup = createElement('div', { className: 'lf-banner-text' });
       const bannerTitle = createElement('strong', {}, `Leetfox loaded your solution for ${pending.problemId}`);
-      const bannerSub = createElement('p', {}, `Language set to ${pending.language.toUpperCase()}, code filled (${pending.code.split('\n').length} lines). Ready to submit!`);
+      
+      let secondsLeft = 3;
+      const bannerSub = createElement('p', {}, `Language: ${pending.language.toUpperCase()}. Auto-submitting in ${secondsLeft}s...`);
 
       textGroup.appendChild(bannerTitle);
       textGroup.appendChild(bannerSub);
 
+      let countdownTimer: any = null;
+
+      const triggerSubmit = () => {
+        if (countdownTimer) clearInterval(countdownTimer);
+        bannerSub.textContent = 'Submitting solution to Codeforces now... 🚀';
+        const submitBtn = form.querySelector('input[type="submit"]') as HTMLElement;
+        if (submitBtn) {
+          submitBtn.click();
+        } else {
+          form.submit();
+        }
+      };
+
       const submitNowBtn = createElement('button', {
         className: 'lf-btn lf-btn-primary',
         type: 'button',
-        onClick: () => {
-          const submitBtn = form.querySelector('input[type="submit"]') as HTMLElement;
-          if (submitBtn) submitBtn.click();
-          else form.submit();
-        }
+        title: 'Submit this code immediately',
+        onClick: triggerSubmit
       }, 'Submit Now 🚀');
+
+      const cancelBtn = createElement('button', {
+        className: 'lf-btn',
+        type: 'button',
+        title: 'Cancel auto-submission to review code',
+        onClick: () => {
+          if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+          }
+          bannerSub.textContent = `Language: ${pending.language.toUpperCase()}. Auto-submit paused. Click "Submit Now" when ready.`;
+          cancelBtn.style.display = 'none';
+        }
+      }, 'Cancel ⏸️');
+
+      countdownTimer = setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft <= 0) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+          triggerSubmit();
+        } else {
+          bannerSub.textContent = `Language: ${pending.language.toUpperCase()}. Auto-submitting in ${secondsLeft}s...`;
+        }
+      }, 1000);
+
+      const btnGroup = createElement('div', { style: 'display: flex; gap: 8px; align-items: center;' });
+      btnGroup.appendChild(cancelBtn);
+      btnGroup.appendChild(submitNowBtn);
 
       banner.appendChild(icon);
       banner.appendChild(textGroup);
-      banner.appendChild(submitNowBtn);
+      banner.appendChild(btnGroup);
 
       form.parentNode?.insertBefore(banner, form);
     }
