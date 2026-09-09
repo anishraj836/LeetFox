@@ -1,32 +1,66 @@
-# 🦊 Leetfox
+# Leetfox
 
-> A modern, fast, keyboard-friendly competitive programming browser extension for Firefox.
+> Modern, fast, and keyboard-driven competitive programming browser extension for Firefox.
 
-Leetfox unifies the user experience of competitive programming websites (Codeforces and CSES) into a clean, distraction-free, professional developer tool. Instead of fragmented page styles and clunky interfaces, Leetfox provides a consistent design system, instant dark mode, 1-click test case copying, local notes, category progress tracking, and full keyboard navigation with a command palette.
+Leetfox transforms competitive programming platforms (Codeforces and CSES) into a unified, distraction-free, professional developer workspace. Instead of fragmented page layouts, mismatched styling, and manual copy-pasting, Leetfox delivers a cohesive IDE-grade interface directly inside Firefox—featuring an integrated CodeMirror 6 editor, multi-language test runner, custom test case manager, intelligent autocompletion, persistent notes, and automated submission pipelines.
 
----
-
-## 🚀 Features
-
-- **Cohesive Modern Interface**: Experience both Codeforces and CSES with the same polished, typography-optimized reading environment.
-- **Platform-Adapter Architecture**: Platform-specific DOM parsing is completely isolated from the shared UI system. Future platforms like AtCoder can be added without modifying the core UI.
-- **Keyboard-Driven Workflow**:
-  - `J` / `K` — Navigate between Next and Previous problems in contest or category order.
-  - `B` — Toggle problem bookmark status.
-  - `N` — Open / close slide-out scratchpad notes (auto-saved).
-  - `D` — Toggle Dark / Light theme.
-  - `O` — Instantly switch between Leetfox modern view and the original website.
-  - `⌘K` / `Ctrl+K` — Open the command palette with fuzzy search.
-  - `?` — Display keyboard shortcuts help sheet.
-  - **Typing Guard**: Shortcuts never trigger while typing into code editors, form inputs, textareas, or contenteditable fields.
-- **1-Click Example Copy**: Copy input/output test cases with immediate visual feedback.
-- **CSES Progress Tracking**: Real-time progress bar for CSES problem sets (e.g., `Introductory Problems: 12 / 19 solved`), calculated locally without requiring accounts or backends.
-- **Zero Disruption to Underlying Sites**: Submit code directly via preserved forms/links, and toggle back to the original page at any time with a single key (`O`).
-- **Private & Local**: Zero backend, zero telemetry. All notes, bookmarks, and solved statuses remain securely stored in your browser's local storage.
+Repository: [https://github.com/anishraj836/Leetfox](https://github.com/anishraj836/Leetfox)
 
 ---
 
-## 🏗️ Architecture
+## Key Features
+
+### Integrated CodeMirror 6 Editor
+- Multi-language syntax highlighting and language support for C++, Python, Java, Rust, and Go.
+- Code folding, line numbers, active line highlighting, and automatic bracket closing.
+- Customizable font size and responsive typography tuned for readability in both dark and light modes.
+- Code auto-saved per problem and per language in local storage.
+
+### Interactive Test Runner & Console Grid
+- One-click execution of sample tests with parallel comparison grid:
+  - Input
+  - Your Output (with distinct empty state indicator when no output is produced)
+  - Expected Output
+  - Diagnostics and Stderr with exit code reporting
+- Add, edit, run, and remove custom test cases on the fly.
+- Visual execution status indicators (Passed, Failed, Running, Error).
+
+### Trie-Based Autocomplete Engine
+- Client-side Prefix Trie containing common Competitive Programming standard library symbols, algorithms, containers, and boilerplate snippets.
+- Real-time token indexing of user-defined functions and variable names within the editor.
+- Configurable autocompletion toggle with persisted preferences.
+
+### Automated Submission Pipeline
+- One-click submission from the editor tab:
+  - Automatic language and compiler standard matching (e.g., C++20, C++17, Python 3, PyPy, Java, Rust, Go).
+  - Background handoff with auto-submit countdown banner and one-click Cancel / Submit Now controls.
+  - Same-origin authentication verification and robust form submission handling across Codeforces, CSES, and AtCoder.
+
+### Keyboard-First Navigation
+- Full keyboard workflow designed for speed:
+  - J / K — Navigate to Next / Previous problem in contest or category order.
+  - B — Toggle problem bookmark status.
+  - N — Open / close slide-out scratchpad notes (auto-saved per problem).
+  - D — Toggle Dark / Light theme.
+  - O — Instantly switch between Leetfox view and the original platform page.
+  - Ctrl + Enter / Cmd + Enter — Run all test cases in the editor.
+  - Ctrl + Alt + Enter — Submit current code to platform.
+  - Ctrl + K / Cmd + K — Open the command palette with fuzzy action search.
+  - ? — Open keyboard shortcuts cheat sheet.
+  - Context-aware typing guards prevent shortcuts from firing while typing in the editor, inputs, or textareas.
+
+### Resizable Split-Screen Workspace
+- Draggable divider between problem statement and code editor.
+- Persistent split ratio saved in browser storage.
+- Double-click divider to reset to default 50/50 balance.
+
+### Local-First and Privacy-Preserving
+- Zero telemetry, zero external trackers, and no external user accounts.
+- All code drafts, notes, bookmarks, settings, and test cases remain private inside your browser storage.
+
+---
+
+## Architecture
 
 ```text
                         Firefox WebExtension
@@ -40,129 +74,101 @@ Leetfox unifies the user experience of competitive programming websites (Codefor
                     │                           │
                     └─────────────┬─────────────┘
                                   ▼
-                          Normalized Models
-                     (Problem, Limits, Examples)
+                           Normalized Models
+                      (Problem, Limits, Examples)
                                   │
                                   ▼
                            Shared UI System
               ┌───────────────────┼───────────────────┐
               ▼                   ▼                   ▼
-        Problem Header       Statement View     Metadata & Specs
+        Problem Header       Statement View     Code Editor Pane
               │                   │                   │
               └───────────────────┼───────────────────┘
                                   ▼
                             Feature Layer
         ┌───────────────────┬───────────────────┬───────────────────┐
         ▼                   ▼                   ▼                   ▼
-  Keyboard Manager   Command Palette     Notes Drawer       Local Storage
+   CodeRunner        CompletionTrie     SubmissionManager    StorageManager
+  (Test execution)   (Autocomplete)    (Pipeline automation) (Local storage)
 ```
 
-### Normalized Problem Model
+### Modular Platform Adapter Interface
 
-Platform adapters transform website DOMs into a standardized `Problem` interface:
-
-```typescript
-export interface Problem {
-  platform: 'codeforces' | 'cses' | string;
-  id: string;                         // e.g. "4A", "1068"
-  qualifiedId: string;                // e.g. "codeforces:4a", "cses:1068"
-  title: string;
-  statementHtml: string;
-  inputSpecificationHtml?: string;
-  outputSpecificationHtml?: string;
-  noteHtml?: string;
-  examples: ProblemExample[];
-  tags: string[];
-  difficulty?: number | string;       // e.g. 800
-  category?: string;                  // e.g. "Introductory Problems"
-  limits: ProblemLimits;
-  contest?: ProblemContestInfo;
-  navigation: ProblemNavigation;
-  url: string;
-  submitUrl?: string;
-}
-```
-
-### Adding a New Platform (e.g. AtCoder)
-
-To add AtCoder, implement the `PlatformAdapter` interface without modifying the UI layer:
+Adding new platforms (such as AtCoder) requires implementing the PlatformAdapter interface without modifying UI components:
 
 ```typescript
-import { PlatformAdapter } from './core/platform/PlatformAdapter';
+import { PlatformAdapter } from "./core/platform/PlatformAdapter";
+import { Problem } from "./core/models/problem";
 
-export class AtCoderAdapter implements PlatformAdapter {
-  readonly platformId = 'atcoder';
-  readonly name = 'AtCoder';
+export class CustomAdapter implements PlatformAdapter {
+  readonly platformId = "custom";
+  readonly name = "Custom Platform";
 
   matches(url: URL): boolean {
-    return url.hostname.includes('atcoder.jp');
+    return url.hostname.includes("example.com");
   }
 
   isProblemPage(url: URL, doc?: Document): boolean {
-    return /\/contests\/[^/]+\/tasks\/[^/]+/i.test(url.pathname);
+    return url.pathname.includes("/problem/");
   }
 
   parseProblem(doc: Document, url: URL): Problem | null {
-    // Extract problem statement, constraints, examples
+    // Extract metadata, statement HTML, input/output limits, sample test cases
   }
 
   getOriginalContainer(doc: Document): HTMLElement | null {
-    return doc.getElementById('main-container');
+    return doc.getElementById("main-content");
   }
 }
-```
-
-Then register it in `src/content/index.ts`:
-
-```typescript
-PlatformRegistry.getInstance().register(new AtCoderAdapter());
 ```
 
 ---
 
-## 📁 Directory Structure
+## Directory Structure
 
 ```text
 Leetfox/
 ├── public/
-│   ├── manifest.json            # Firefox Manifest V3
-│   └── icons/                   # 16x16, 48x48, 128x128 icons
+│   ├── manifest.json            # Firefox WebExtension Manifest V3
+│   └── icons/                   # 16x16, 48x48, 128x128 extension icons
 ├── src/
 │   ├── background/
-│   │   └── index.ts             # Background service script
+│   │   └── index.ts             # Background script for cross-context tasks
 │   ├── content/
-│   │   ├── index.ts             # Content script bootstrap & observer
+│   │   ├── index.ts             # Content script bootstrap and observer
 │   │   └── styles/
-│   │       └── leetfox.css      # Cohesive design system & theme variables
+│   │       └── leetfox.css      # Design system, CSS variables, dark/light themes
 │   ├── core/
-│   │   ├── models/              # Problem, State, and Preference models
-│   │   ├── platform/            # PlatformAdapter interface & PlatformRegistry
-│   │   ├── storage/             # StorageManager (browser.storage.local)
-│   │   ├── keyboard/            # KeyboardManager & shortcut registry
-│   │   └── utils/               # Safe DOM helpers & HTML sanitizer
+│   │   ├── editor/
+│   │   │   └── CompletionTrie.ts# Fast prefix trie for CP autocomplete
+│   │   ├── models/              # Problem, State, and Preferences models
+│   │   ├── platform/            # PlatformAdapter interface and PlatformRegistry
+│   │   ├── runner/              # Code execution engine and output parser
+│   │   ├── storage/             # StorageManager (browser.storage.local wrapper)
+│   │   ├── submission/          # SubmissionManager for Codeforces and CSES
+│   │   ├── keyboard/            # KeyboardManager and shortcut registry
+│   │   └── utils/               # Safe DOM builders, sanitize utilities
 │   ├── platforms/
-│   │   ├── codeforces/          # Codeforces adapter, parser & selectors
-│   │   └── cses/                # CSES adapter, parser & selectors
+│   │   ├── codeforces/          # Codeforces adapter, parser, and selectors
+│   │   └── cses/                # CSES adapter, parser, and selectors
 │   ├── popup/
-│   │   ├── popup.html           # Extension browser action popup
+│   │   ├── popup.html           # Toolbar popup interface
 │   │   ├── popup.css
 │   │   └── popup.ts
 │   └── ui/
-│       ├── LeetfoxApp.ts        # Main UI application controller
-│       └── components/          # Header, MetadataBar, StatementView,
-│                                # ExampleCard, ProgressBar, NotesDrawer,
-│                                # CommandPalette, KeyboardCheatSheet
+│       ├── LeetfoxApp.ts        # Main UI coordinator and split layout manager
+│       └── components/          # Header, StatementView, CodeEditorPane,
+│                                # ExampleCard, ConsoleOutputGrid,
+│                                # NotesDrawer, CommandPalette, CheatSheet
 ├── tests/
-│   ├── fixtures/                # Real HTML fixtures (Codeforces, CSES)
-│   ├── platform-detection.test.ts
+│   ├── fixtures/                # Platform DOM snapshots
+│   ├── app-integration.test.ts
 │   ├── codeforces-parser.test.ts
 │   ├── cses-parser.test.ts
-│   ├── storage.test.ts
-│   ├── keyboard.test.ts
-│   ├── command-palette.test.ts
-│   ├── sanitizer.test.ts
-│   └── app-integration.test.ts
-├── build.js                     # Vite multi-bundle build pipeline
+│   ├── file-submission-pipeline.test.ts
+│   ├── refactor-enhancements.test.ts
+│   └── resizable-split-borders.test.ts
+├── build.js                     # Multi-bundle build configuration
 ├── package.json
 ├── tsconfig.json
 └── vitest.config.ts
@@ -170,76 +176,78 @@ Leetfox/
 
 ---
 
-## 🛠️ Installation & Development
+## Installation & Development
 
 ### Prerequisites
+- Node.js (v18 or higher)
+- npm (v9 or higher)
+- Mozilla Firefox (v109 or higher)
 
-- Node.js (v18+)
-- npm (v9+)
-- Mozilla Firefox (v109+)
+### Build Instructions
 
-### Build Steps
-
-1. Clone the repository and install dependencies:
+1. Clone repository and install dependencies:
    ```bash
+   git clone https://github.com/anishraj836/Leetfox.git
+   cd Leetfox
    npm install
    ```
 
-2. Build the extension bundle:
+2. Compile TypeScript and build extension artifacts:
    ```bash
    npm run build
    ```
-   The production-ready extension will be output to the `dist/` directory.
+   Production artifacts are generated in the `dist/` directory.
 
-3. Run the automated test suite:
+3. Run automated tests:
    ```bash
    npm test
    ```
 
-4. Type-check the project:
+4. Typecheck codebase:
    ```bash
    npm run typecheck
    ```
 
 ### Loading into Firefox
 
-1. Open Firefox.
-2. In the URL bar, type:
+1. Open Firefox and navigate to:
    ```text
    about:debugging#/runtime/this-firefox
    ```
-3. Click the **"Load Temporary Add-on..."** button.
-4. Navigate to the project's `dist/` folder and select `manifest.json`.
-5. Leetfox is now active! Visit any problem page on:
-   - [Codeforces](https://codeforces.com/problemset/problem/4/A)
-   - [CSES](https://cses.fi/problemset/task/1068)
+2. Click **Load Temporary Add-on...**
+3. Select `manifest.json` located inside the project `dist/` folder.
+4. Open any problem page on:
+   - [Codeforces Problemset](https://codeforces.com/problemset/problem/4/A)
+   - [CSES Problem Set](https://cses.fi/problemset/task/1068)
 
 ---
 
-## ⌨️ Keyboard Shortcuts Reference
+## Keyboard Shortcuts Reference
 
-| Key | Action | Context |
+| Shortcut | Action | Scope |
 | :--- | :--- | :--- |
-| `J` | Navigate to **Next problem** | Problem view |
-| `K` | Navigate to **Previous problem** | Problem view |
-| `B` | Toggle **Bookmark** status | Problem view |
-| `N` | Open / Close **Notes drawer** | Problem view |
-| `D` | Toggle **Dark / Light theme** | Everywhere |
-| `O` | Toggle **Original Site** view | Problem view |
-| `⌘K` / `Ctrl+K` | Open **Command Palette** | Everywhere |
-| `?` | Show **Shortcuts cheat sheet** | Everywhere |
-| `Esc` | Close open palette, drawer, or modal | Modals / Drawers |
+| J | Navigate to Next Problem | Problem View |
+| K | Navigate to Previous Problem | Problem View |
+| B | Toggle Problem Bookmark | Problem View |
+| N | Toggle Notes Drawer | Problem View |
+| D | Toggle Dark / Light Theme | Global |
+| O | Toggle Original Site View | Problem View |
+| Ctrl + Enter / Cmd + Enter | Run Code with Test Cases | Code Editor |
+| Ctrl + Alt + Enter | Submit Code to Platform | Code Editor |
+| Ctrl + K / Cmd + K | Open Command Palette | Global |
+| ? | Open Shortcuts Cheat Sheet | Global |
+| Esc | Close Active Modal / Drawer / Palette | Global |
 
 ---
 
-## 🛡️ Security & Privacy
+## Security & Reliability
 
-- **DOMPurify Sanitization**: All extracted problem statements and specifications are sanitized to strip any dangerous `<script>`, `<iframe>`, `<object>`, `<form>`, or inline event handlers (`onerror`, `onload`).
-- **Zero Network Egress**: Leetfox runs entirely on the client. It makes zero background network requests and sends zero telemetry.
-- **Local Isolation**: All user states (notes, bookmarks, solved status) are stored in your browser's private local storage partition keyed by platform ID (`problem:codeforces:...`, `problem:cses:...`).
+- **HTML Sanitization**: All incoming HTML from problem descriptions and limits is sanitized via DOMPurify before insertion to neutralize malicious tags and event handlers.
+- **Form Integrity**: Submission flows preserve platform-native authentication, session cookies, and security tokens.
+- **Local Storage Isolation**: User code, notes, and preferences are partitioned by platform and problem ID, preventing collisions.
 
 ---
 
-## 📄 License
+## License
 
-MIT License. Designed and built with ❤️ for competitive programmers.
+MIT License. Designed and engineered for competitive programming developers.

@@ -31,6 +31,11 @@ export class SubmissionManager {
         sessionStorage.setItem('pending:submission', JSON.stringify(submission));
       }
     } catch (_) {}
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem('pending:submission', JSON.stringify(submission));
+      }
+    } catch (_) {}
   }
 
   public async getPendingSubmission(): Promise<PendingSubmission | null> {
@@ -59,6 +64,18 @@ export class SubmissionManager {
       }
     } catch (_) {}
 
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = localStorage.getItem('pending:submission');
+        if (raw) {
+          const sub = JSON.parse(raw) as PendingSubmission;
+          if (Date.now() - sub.timestamp < 600000) {
+            return sub;
+          }
+        }
+      }
+    } catch (_) {}
+
     return null;
   }
 
@@ -75,6 +92,11 @@ export class SubmissionManager {
         sessionStorage.removeItem('pending:submission');
       }
     } catch (_) {}
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem('pending:submission');
+      }
+    } catch (_) {}
   }
 
   public getFilenameForLanguage(lang: string): string {
@@ -86,6 +108,26 @@ export class SubmissionManager {
       case 'go': return 'solution.go';
       default: return 'solution.txt';
     }
+  }
+
+  public getMimeTypeForLanguage(lang: string): string {
+    switch (lang.toLowerCase()) {
+      case 'cpp': return 'text/x-c++src';
+      case 'python': return 'text/x-python';
+      case 'java': return 'text/x-java-source';
+      case 'rust': return 'text/x-rust';
+      case 'go': return 'text/x-go';
+      default: return 'text/plain';
+    }
+  }
+
+  /**
+   * Converts the user code into a standard File object for submission.
+   */
+  public createSubmissionFile(code: string, language: string): File {
+    const filename = this.getFilenameForLanguage(language);
+    const mime = this.getMimeTypeForLanguage(language);
+    return new File([code], filename, { type: mime, lastModified: Date.now() });
   }
 
   /**
@@ -113,6 +155,21 @@ export class SubmissionManager {
     const submitTab = doc.querySelector('.title-block .nav a[href*="/submit/"], .nav a[href*="/submit/"]');
     if (submitTab) return true;
 
+    return true;
+  }
+
+  /**
+   * Fast synchronous check whether user is authenticated on Codeforces based on page DOM
+   */
+  public isUserLoggedInOnCodeforces(doc: Document = document): boolean {
+    // 1. Explicit profile link or logout link indicates authenticated session
+    if (doc.querySelector('a[href*="/logout"], a[href*="/profile/"]')) {
+      return true;
+    }
+    // 2. Explicit enter/login/register links in header indicate unauthenticated session
+    if (doc.querySelector('a[href*="/enter"], a[href*="/register"]')) {
+      return false;
+    }
     return true;
   }
 
@@ -169,12 +226,12 @@ export class SubmissionManager {
         };
       }
 
-      const filename = this.getFilenameForLanguage(language);
-      const blob = new Blob([code], { type: 'text/plain' });
+      // Convert code to file for submission
+      const file = this.createSubmissionFile(code, language);
 
       const formData = new FormData();
       formData.append('csrf_token', csrfToken);
-      formData.append('file', blob, filename);
+      formData.append('file', file, file.name);
       formData.append('submit', 'Submit');
 
       const postRes = await fetch(submitPageUrl, {
@@ -190,21 +247,31 @@ export class SubmissionManager {
           return { success: false, error: 'You must be logged in to CSES to submit. Please log in to your CSES account.' };
         }
 
-        // Check if response contains an error message from CSES
+        // If redirect reached result page, submission was successful!
+        if (finalUrl.includes('/result/')) {
+          await this.clearPendingSubmission();
+          return {
+            success: true,
+            resultUrl: finalUrl
+          };
+        }
+
+        // Check if response contains an error message from CSES only if still on submit page
         try {
           const resText = await postRes.text();
           if (typeof DOMParser !== 'undefined') {
             const resDoc = new DOMParser().parseFromString(resText, 'text/html');
-            const errorEl = resDoc.querySelector('p.error, .error, .alert-danger');
+            const errorEl = resDoc.querySelector('p.error, .alert-danger');
             if (errorEl && errorEl.textContent?.trim()) {
               return { success: false, error: errorEl.textContent.trim() };
             }
           }
         } catch (_) {}
 
+        await this.clearPendingSubmission();
         return {
           success: true,
-          resultUrl: finalUrl.includes('/result/') ? finalUrl : `${origin}/problemset/result/${taskId}/`
+          resultUrl: `${origin}/problemset/result/${taskId}/`
         };
       }
 
@@ -255,21 +322,30 @@ export class SubmissionManager {
       return false;
     }
 
-    const form = doc.querySelector('form[method="post"], form') as HTMLFormElement;
+    const forms = Array.from(doc.querySelectorAll('form'));
+    const form = forms.find(f => f.querySelector('input[type="file"]') || (f.getAttribute('action') || '').includes('/submit')) || (forms[0] as HTMLFormElement | undefined);
     if (!form) return false;
 
     const fileInput = form.querySelector('input[type="file"]') as HTMLInputElement;
     if (!fileInput) return false;
 
-    // Attach file using modern DataTransfer API
-    const filename = this.getFilenameForLanguage(lang);
-    const file = new File([codeToSubmit], filename, { type: 'text/plain' });
+    // Convert code to file and attach using modern DataTransfer API
+    const file = this.createSubmissionFile(codeToSubmit, lang);
 
     try {
-      if (typeof DataTransfer !== 'undefined') {
-        const dt = new DataTransfer();
+      const DT = (doc.defaultView as any)?.DataTransfer || (globalThis as any).DataTransfer;
+      if (typeof DT !== 'undefined') {
+        const dt = new DT();
         dt.items.add(file);
-        fileInput.files = dt.files;
+        try {
+          fileInput.files = dt.files;
+        } catch (_) {}
+        if (!fileInput.files || fileInput.files.length === 0) {
+          Object.defineProperty(fileInput, 'files', { value: dt.files || [file], configurable: true, writable: true });
+        }
+        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        Object.defineProperty(fileInput, 'files', { value: [file], configurable: true, writable: true });
         fileInput.dispatchEvent(new Event('change', { bubbles: true }));
       }
     } catch (e) {
@@ -283,12 +359,18 @@ export class SubmissionManager {
         className: 'lf-submit-page-banner'
       });
 
-      const icon = createElement('span', { className: 'lf-banner-icon' }, '🦊');
+      const icon = createElement('a', {
+        className: 'lf-banner-icon',
+        href: 'https://github.com/anishraj836/Leetfox',
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        title: 'Leetfox on GitHub'
+      }, '[Leetfox]');
       const textGroup = createElement('div', { className: 'lf-banner-text' });
       const bannerTitle = createElement('strong', {}, `Leetfox ready to submit for Task ${taskId}`);
       
       let secondsLeft = 3;
-      const bannerSub = createElement('p', {}, `Attached ${filename}. Auto-submitting in ${secondsLeft}s...`);
+      const bannerSub = createElement('p', {}, `Attached ${file.name}. Auto-submitting in ${secondsLeft}s...`);
 
       textGroup.appendChild(bannerTitle);
       textGroup.appendChild(bannerSub);
@@ -297,11 +379,12 @@ export class SubmissionManager {
 
       const triggerSubmit = async () => {
         if (countdownTimer) clearInterval(countdownTimer);
-        bannerSub.textContent = 'Submitting code to CSES now... 🚀';
+        bannerSub.textContent = 'Submitting code to CSES now...';
         
-        // Attempt privileged direct submission via background script
+        // Attempt privileged direct submission via file upload
         const res = await this.submitCSESDirect(taskId, codeToSubmit, lang);
         if (res.success && res.resultUrl) {
+          await this.clearPendingSubmission();
           window.location.href = res.resultUrl;
           return;
         }
@@ -313,6 +396,7 @@ export class SubmissionManager {
         }
 
         // Fallback to DOM submission
+        await this.clearPendingSubmission();
         const actualSubmitBtn = form.querySelector('input[type="submit"], button[type="submit"]') as HTMLElement;
         if (actualSubmitBtn) {
           actualSubmitBtn.click();
@@ -326,7 +410,7 @@ export class SubmissionManager {
         type: 'button',
         title: 'Submit this code immediately',
         onClick: triggerSubmit
-      }, 'Submit Now 🚀');
+      }, 'Submit Now');
 
       const cancelBtn = createElement('button', {
         className: 'lf-btn',
@@ -337,10 +421,10 @@ export class SubmissionManager {
             clearInterval(countdownTimer);
             countdownTimer = null;
           }
-          bannerSub.textContent = `Attached ${filename}. Auto-submit paused. Click "Submit Now" when ready.`;
+          bannerSub.textContent = `Attached ${file.name}. Auto-submit paused. Click "Submit Now" when ready.`;
           cancelBtn.style.display = 'none';
         }
-      }, 'Cancel ⏸️');
+      }, 'Cancel');
 
       countdownTimer = setInterval(() => {
         secondsLeft -= 1;
@@ -349,7 +433,7 @@ export class SubmissionManager {
           countdownTimer = null;
           triggerSubmit();
         } else {
-          bannerSub.textContent = `Attached ${filename}. Auto-submitting in ${secondsLeft}s...`;
+          bannerSub.textContent = `Attached ${file.name}. Auto-submitting in ${secondsLeft}s...`;
         }
       }, 1000);
 
@@ -370,23 +454,114 @@ export class SubmissionManager {
   /**
    * Helper to select matching compiler on Codeforces submit form
    */
-  private selectMatchingCodeforcesLanguage(select: HTMLSelectElement, lang: string): void {
+  private async selectMatchingCodeforcesLanguage(select: HTMLSelectElement, lang: string): Promise<void> {
     const l = lang.toLowerCase();
     const options = Array.from(select.options);
+    if (options.length === 0) return;
 
+    // 1. Check if user already has a saved preferred Codeforces compiler in storage matching requested standard
+    try {
+      const storageArea = (globalThis as any).browser?.storage?.local || (globalThis as any).chrome?.storage?.local;
+      if (storageArea) {
+        const res = await (storageArea.get('preferred_cf_compiler') instanceof Promise
+          ? storageArea.get('preferred_cf_compiler')
+          : new Promise<any>(r => storageArea.get('preferred_cf_compiler', r)));
+        const savedId = res?.preferred_cf_compiler;
+        if (savedId) {
+          const matchingSavedOption = options.find(o => String(o.value) === String(savedId));
+          if (matchingSavedOption) {
+            const optText = matchingSavedOption.text.toLowerCase();
+            let isMatch = false;
+            if (l === 'cpp' || l === 'cpp20') {
+              isMatch = /g\+\+20|c\+\+20|clang\+\+20/i.test(optText);
+            } else if (l === 'cpp17') {
+              isMatch = /g\+\+17|c\+\+17/i.test(optText);
+            } else if (l === 'cpp23') {
+              isMatch = /g\+\+23|c\+\+23/i.test(optText);
+            } else if (l === 'python') {
+              isMatch = /python|pypy/i.test(optText);
+            } else if (l === 'java') {
+              isMatch = /java|openjdk/i.test(optText);
+            } else if (l === 'rust') {
+              isMatch = /rust/i.test(optText);
+            } else if (l === 'go') {
+              isMatch = /\bgo\b/i.test(optText);
+            }
+
+            if (isMatch) {
+              select.value = matchingSavedOption.value;
+              select.dispatchEvent(new Event('change', { bubbles: true }));
+              return;
+            }
+          }
+        }
+      }
+    } catch (_) {}
+
+    // 2. Check if the currently selected option already belongs to the requested language family
+    const currentOption = select.selectedOptions?.[0] || options[select.selectedIndex];
+    if (currentOption && currentOption.value) {
+      const curText = currentOption.text.toLowerCase();
+      if ((l === 'cpp' || l === 'cpp20') && /g\+\+20|c\+\+20/i.test(curText)) {
+        return;
+      }
+      if (l === 'cpp17' && /g\+\+17|c\+\+17/i.test(curText)) {
+        return;
+      }
+      if (l === 'cpp23' && /g\+\+23|c\+\+23/i.test(curText)) {
+        return;
+      }
+      if (l === 'python' && /python 3|pypy 3/i.test(curText)) {
+        return;
+      }
+      if (l === 'java' && /java/i.test(curText)) {
+        return;
+      }
+      if (l === 'rust' && /rust/i.test(curText)) {
+        return;
+      }
+      if (l === 'go' && /\bgo\b/i.test(curText)) {
+        return;
+      }
+    }
+
+    // 3. Select the best matching compiler with strict priority (G++20 > G++23 > G++17 for cpp/cpp20)
     let matchOption: HTMLOptionElement | undefined;
 
-    if (l === 'cpp') {
-      matchOption = options.find(o => /g\+\+20|g\+\+17|g\+\+23|gnu c\+\+/i.test(o.text))
+    if (l === 'cpp' || l === 'cpp20') {
+      matchOption = options.find(o => /g\+\+20.*64/i.test(o.text))
+        || options.find(o => /g\+\+20/i.test(o.text))
+        || options.find(o => /c\+\+20/i.test(o.text))
+        || options.find(o => /clang\+\+20/i.test(o.text))
+        || options.find(o => /g\+\+23/i.test(o.text))
+        || options.find(o => /g\+\+17/i.test(o.text))
+        || options.find(o => /gnu c\+\+/i.test(o.text))
+        || options.find(o => /c\+\+/i.test(o.text));
+    } else if (l === 'cpp17') {
+      matchOption = options.find(o => /g\+\+17.*64/i.test(o.text))
+        || options.find(o => /g\+\+17/i.test(o.text))
+        || options.find(o => /c\+\+17/i.test(o.text))
+        || options.find(o => /g\+\+20/i.test(o.text))
+        || options.find(o => /c\+\+/i.test(o.text));
+    } else if (l === 'cpp23') {
+      matchOption = options.find(o => /g\+\+23.*64/i.test(o.text))
+        || options.find(o => /g\+\+23/i.test(o.text))
+        || options.find(o => /g\+\+20/i.test(o.text))
         || options.find(o => /c\+\+/i.test(o.text));
     } else if (l === 'python') {
-      matchOption = options.find(o => /python 3|pypy 3/i.test(o.text))
+      matchOption = options.find(o => /python 3\.\d+/i.test(o.text))
+        || options.find(o => /pypy 3/i.test(o.text))
+        || options.find(o => /python 3/i.test(o.text))
         || options.find(o => /python/i.test(o.text));
     } else if (l === 'java') {
-      matchOption = options.find(o => /java 21|java 17|java 11|openjdk/i.test(o.text))
+      matchOption = options.find(o => /java 21/i.test(o.text))
+        || options.find(o => /java 17/i.test(o.text))
+        || options.find(o => /java 11/i.test(o.text))
+        || options.find(o => /openjdk/i.test(o.text))
         || options.find(o => /java/i.test(o.text));
     } else if (l === 'rust') {
-      matchOption = options.find(o => /rust/i.test(o.text));
+      matchOption = options.find(o => /rust 2021/i.test(o.text))
+        || options.find(o => /rust/i.test(o.text));
     } else if (l === 'go') {
       matchOption = options.find(o => /\bgo\b/i.test(o.text));
     }
@@ -395,10 +570,100 @@ export class SubmissionManager {
       select.value = matchOption.value;
       select.dispatchEvent(new Event('change', { bubbles: true }));
     }
+
+    // 4. Auto-detect user manual compiler selection on Codeforces and persist
+    select.addEventListener('change', () => {
+      try {
+        const chosen = select.selectedOptions?.[0] || options[select.selectedIndex];
+        if (chosen) {
+          const storageArea = (globalThis as any).browser?.storage?.local || (globalThis as any).chrome?.storage?.local;
+          if (storageArea) {
+            storageArea.set({ 'preferred_cf_compiler': chosen.value });
+          }
+        }
+      } catch (_) {}
+    }, { once: true });
   }
 
   /**
-   * Handles auto-filling code on Codeforces submit page
+   * Helper to locate the genuine Codeforces submission form (strictly excluding search or login forms)
+   */
+  public findCodeforcesSubmitForm(doc: Document = document): HTMLFormElement | null {
+    // 1. Unique Codeforces submission controls inside a form
+    const programTypeSelect = doc.querySelector('select[name="programTypeId"]');
+    if (programTypeSelect) {
+      const form = programTypeSelect.closest('form');
+      if (form && !form.classList.contains('search')) return form as HTMLFormElement;
+    }
+
+    const sourceFileInput = doc.querySelector('input[name="sourceFile"], input[type="file"][name*="source"]');
+    if (sourceFileInput) {
+      const form = sourceFileInput.closest('form');
+      if (form && !form.classList.contains('search')) return form as HTMLFormElement;
+    }
+
+    const problemInput = doc.querySelector('input[name="submittedProblemCode"], select[name="submittedProblemIndex"]');
+    if (problemInput) {
+      const form = problemInput.closest('form');
+      if (form && !form.classList.contains('search')) return form as HTMLFormElement;
+    }
+
+    // 2. Specific submission form classes and action (strictly excluding search/auth/handleForm)
+    const forms = Array.from(doc.querySelectorAll('form.submit-form, form.submitForm, form[action*="/submit"]'));
+    for (const f of forms) {
+      const formEl = f as HTMLFormElement;
+      const action = (formEl.getAttribute('action') || '').toLowerCase();
+      if (!action.includes('search') && !formEl.classList.contains('search') && !formEl.classList.contains('handleForm')) {
+        return formEl;
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Render an in-page auth warning banner if an unauthenticated user lands on submit page
+   */
+  public showAuthNoticeBanner(doc: Document, platformName: string, loginUrl: string): void {
+    if (doc.getElementById('lf-auth-banner')) return;
+    const banner = createElement('div', {
+      id: 'lf-auth-banner',
+      className: 'lf-submit-page-banner lf-submit-page-banner-warning'
+    });
+
+    const icon = createElement('a', {
+      className: 'lf-banner-icon',
+      href: 'https://github.com/anishraj836/Leetfox',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      title: 'Leetfox on GitHub'
+    }, '[Leetfox]');
+
+    const textGroup = createElement('div', { className: 'lf-banner-text' });
+    const title = createElement('strong', {}, `Log In to ${platformName} Required`);
+    const sub = createElement('p', {}, `You must be logged into your ${platformName} account to submit solutions.`);
+    textGroup.appendChild(title);
+    textGroup.appendChild(sub);
+
+    const btnGroup = createElement('div', { style: 'display: flex; gap: 8px; align-items: center;' });
+    const loginLink = createElement('a', {
+      className: 'lf-btn lf-btn-primary',
+      href: loginUrl,
+      target: '_blank',
+      rel: 'noopener noreferrer'
+    }, `Log In to ${platformName}`);
+
+    btnGroup.appendChild(loginLink);
+    banner.appendChild(icon);
+    banner.appendChild(textGroup);
+    banner.appendChild(btnGroup);
+
+    const targetContainer = doc.getElementById('pageContent') || doc.body;
+    targetContainer.prepend(banner);
+  }
+
+  /**
+   * Handles auto-filling and file submission on Codeforces submit page
    */
   public async handleCodeforcesSubmitPage(doc: Document, url: URL): Promise<boolean> {
     const isSubmitPage = url.pathname.includes('/submit');
@@ -407,11 +672,33 @@ export class SubmissionManager {
     const pending = await this.getPendingSubmission();
     if (!pending || pending.platform !== 'codeforces') return false;
 
-    const form = doc.querySelector('form.submitForm, form[action*="/submit"]') as HTMLFormElement;
-    if (!form) return false;
+    // Immediately consume and clear pending submission so auto-submit can NEVER retry in a loop
+    await this.clearPendingSubmission();
+
+    // Check authentication first: if not logged in, prompt user to log in rather than failing or submitting search
+    const isLoggedIn = this.isUserLoggedInOnCodeforces(doc);
+    if (!isLoggedIn) {
+      this.showAuthNoticeBanner(doc, 'Codeforces', 'https://codeforces.com/enter');
+      return true;
+    }
+
+    // Locate the genuine Codeforces submission form (strictly avoiding search forms)
+    let form = this.findCodeforcesSubmitForm(doc);
+    if (!form && typeof window !== 'undefined') {
+      for (let i = 0; i < 10; i++) {
+        await new Promise(r => setTimeout(r, 100));
+        form = this.findCodeforcesSubmitForm(doc);
+        if (form) break;
+      }
+    }
+
+    if (!form) {
+      console.warn('[Leetfox] Genuine Codeforces submission form not found on this page');
+      return false;
+    }
 
     // Parse problemId into contestId and index if possible
-    // e.g. "4A" -> contestId "4", index "A"
+    // e.g. "4A" -> contestId "4", index "A"; "2260A" -> contestId "2260", index "A"
     const match = pending.problemId.match(/^(\d+)([A-Za-z0-9]+)$/);
     const index = match ? match[2] : pending.problemId;
 
@@ -434,71 +721,502 @@ export class SubmissionManager {
       problemInput.value = pending.problemId;
       problemInput.dispatchEvent(new Event('input', { bubbles: true }));
       problemInput.dispatchEvent(new Event('change', { bubbles: true }));
+      problemInput.dispatchEvent(new Event('blur', { bubbles: true }));
     }
 
     // 3. Set language dropdown on Codeforces submit form
     const langSelect = form.querySelector('select[name="programTypeId"]') as HTMLSelectElement;
     if (langSelect) {
-      this.selectMatchingCodeforcesLanguage(langSelect, pending.language);
+      await this.selectMatchingCodeforcesLanguage(langSelect, pending.language);
     }
 
-    // 4. Fill source code in textarea
-    const textarea = form.querySelector('textarea#sourceCodeTextarea, textarea[name="source"]') as HTMLTextAreaElement;
-    if (textarea) {
-      textarea.value = pending.code;
-      textarea.dispatchEvent(new Event('input', { bubbles: true }));
-      textarea.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    // 4. Fill and set source code in textarea without breaking Gecko form serialization
+    const textarea = (form.querySelector('textarea#sourceCodeTextarea, textarea[name="source"], textarea') || doc.querySelector('textarea#sourceCodeTextarea, textarea[name="source"]')) as HTMLTextAreaElement | null;
+    const win = (doc.defaultView || (typeof window !== 'undefined' ? window : null)) as any;
+    const pageWin = win?.wrappedJSObject || win;
 
-    // 5. Update Ace Editor if active on page
-    try {
-      const win = doc.defaultView as any;
-      if (win && win.ace && typeof win.ace.edit === 'function') {
-        const aceEditor = win.ace.edit('editor');
-        if (aceEditor && typeof aceEditor.setValue === 'function') {
-          aceEditor.setValue(pending.code, 1);
-        }
-      }
-    } catch (_) {}
+    const populateTextarea = () => {
+      if (!textarea || !textarea.ownerDocument || !doc.defaultView) return;
 
-    // 6. Attach file if file input exists
-    const fileInput = form.querySelector('input[type="file"][name="sourceFile"]') as HTMLInputElement;
-    if (fileInput) {
-      const filename = this.getFilenameForLanguage(pending.language);
-      const file = new File([pending.code], filename, { type: 'text/plain' });
       try {
-        if (typeof DataTransfer !== 'undefined') {
-          const dt = new DataTransfer();
-          dt.items.add(file);
-          fileInput.files = dt.files;
-          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        const proto = (win?.HTMLTextAreaElement || HTMLTextAreaElement).prototype;
+        const desc = Object.getOwnPropertyDescriptor(proto, 'value');
+        if (desc && desc.set) {
+          desc.set.call(textarea, pending.code);
+        } else {
+          textarea.value = pending.code;
+        }
+      } catch (_) {
+        textarea.value = pending.code;
+      }
+
+      textarea.textContent = pending.code;
+      textarea.defaultValue = pending.code;
+
+      try {
+        while (textarea.firstChild) {
+          textarea.removeChild(textarea.firstChild);
+        }
+        textarea.appendChild(doc.createTextNode(pending.code));
+      } catch (_) {}
+
+      // In Firefox WebExtension content scripts, also update raw element in page context
+      const rawTextarea = (textarea as any)?.wrappedJSObject;
+      if (rawTextarea && rawTextarea !== textarea) {
+        try {
+          const rawProto = pageWin?.HTMLTextAreaElement?.prototype;
+          const rawDesc = rawProto ? Object.getOwnPropertyDescriptor(rawProto, 'value') : null;
+          if (rawDesc && rawDesc.set) {
+            rawDesc.set.call(rawTextarea, pending.code);
+          } else {
+            rawTextarea.value = pending.code;
+          }
+          rawTextarea.textContent = pending.code;
+          rawTextarea.defaultValue = pending.code;
+        } catch (_) {}
+      }
+
+      if (pageWin?.$) {
+        try {
+          pageWin.$('textarea#sourceCodeTextarea, textarea[name="source"]').val(pending.code);
+        } catch (_) {}
+      }
+
+      const Evt = doc.defaultView?.Event || (typeof Event !== 'undefined' ? Event : null);
+      if (Evt) {
+        try {
+          textarea.dispatchEvent(new Evt('input', { bubbles: true }));
+          textarea.dispatchEvent(new Evt('change', { bubbles: true }));
+        } catch (_) {}
+      }
+    };
+
+    populateTextarea();
+
+    // Clear file input so Codeforces processes the textarea (avoiding file upload requirement)
+    const fileInput = form.querySelector('input[type="file"][name="sourceFile"], input[type="file"]') as HTMLInputElement | null;
+    const clearFileInput = () => {
+      if (fileInput) {
+        try {
+          fileInput.value = '';
+          const rawFileInput = (fileInput as any)?.wrappedJSObject;
+          if (rawFileInput) {
+            try { rawFileInput.value = ''; } catch (_) {}
+          }
+        } catch (_) {}
+      }
+    };
+    clearFileInput();
+
+    // Enable submit button immediately so it is ready for submission
+    const initialSubmitBtn = form.querySelector('input.submit, input[type="submit"], button[type="submit"]') as HTMLInputElement | HTMLButtonElement | null;
+    if (initialSubmitBtn) {
+      initialSubmitBtn.disabled = false;
+      initialSubmitBtn.removeAttribute('disabled');
+      const rawInitialBtn = (initialSubmitBtn as any)?.wrappedJSObject;
+      if (rawInitialBtn) {
+        try {
+          rawInitialBtn.disabled = false;
+          rawInitialBtn.removeAttribute('disabled');
+        } catch (_) {}
+      }
+    }
+
+    // 5. Update Ace Editor directly via Firefox window.wrappedJSObject and via script injection
+    const syncAceDirect = (code: string) => {
+      if (!pageWin) return;
+      try {
+        if (pageWin.editor && typeof pageWin.editor.setValue === 'function') {
+          try { pageWin.editor.setValue(code, 1); } catch (_) {}
+        }
+        if (pageWin.aceEditor && typeof pageWin.aceEditor.setValue === 'function') {
+          try { pageWin.aceEditor.setValue(code, 1); } catch (_) {}
+        }
+        if (pageWin.ace && typeof pageWin.ace.edit === 'function') {
+          ['sourceCodeTextarea', 'sourceCodeTextarea_ace', 'editor', 'sourceCode', 'source'].forEach((id: string) => {
+            try {
+              const el = doc.getElementById(id);
+              const rawEl = (el as any)?.wrappedJSObject || el;
+              if (rawEl) {
+                const ed = pageWin.ace.edit(rawEl);
+                if (ed && typeof ed.setValue === 'function') ed.setValue(code, 1);
+              }
+            } catch (_) {}
+          });
+          doc.querySelectorAll('.ace_editor').forEach((el: any) => {
+            try {
+              const rawEl = (el as any)?.wrappedJSObject || el;
+              const ed = pageWin.ace.edit(rawEl);
+              if (ed && typeof ed.setValue === 'function') ed.setValue(code, 1);
+            } catch (_) {}
+          });
+        }
+        doc.querySelectorAll('.ace_editor, #sourceCodeTextarea_ace').forEach((el: any) => {
+          try {
+            const rawEl = (el as any)?.wrappedJSObject || el;
+            if (rawEl?.env?.editor && typeof rawEl.env.editor.setValue === 'function') {
+              rawEl.env.editor.setValue(code, 1);
+            }
+          } catch (_) {}
+        });
+        if (pageWin.$) {
+          try {
+            pageWin.$('textarea#sourceCodeTextarea, textarea[name="source"]').val(code);
+          } catch (_) {}
         }
       } catch (_) {}
-    }
+    };
 
-    // 7. Inject Leetfox Confirmation Banner with 3s auto-submit countdown
+    syncAceDirect(pending.code);
+    [50, 150, 300, 600, 1000].forEach(delay => {
+      setTimeout(() => {
+        populateTextarea();
+        clearFileInput();
+        syncAceDirect(pending.code);
+      }, delay);
+    });
+
+    // Capture submit on form to ensure code is synced right before Codeforces handlers
+    const onFormSubmit = () => {
+      populateTextarea();
+      clearFileInput();
+      syncAceDirect(pending.code);
+    };
+    form.addEventListener('submit', onFormSubmit, true);
+    form.addEventListener('submit', onFormSubmit, false);
+
+    try {
+      const script = doc.createElement('script');
+      const existingNonce = doc.querySelector('script[nonce]')?.getAttribute('nonce');
+      if (existingNonce) {
+        script.setAttribute('nonce', existingNonce);
+      }
+      script.textContent = `
+        (function() {
+          var code = ${JSON.stringify(pending.code)};
+
+          function syncPage() {
+            var ta = document.getElementById('sourceCodeTextarea') || document.querySelector('textarea[name="source"]');
+            if (ta) {
+              try {
+                var proto = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+                if (proto && proto.set) proto.set.call(ta, code); else ta.value = code;
+              } catch (_) {
+                ta.value = code;
+              }
+              ta.textContent = code;
+              ta.defaultValue = code;
+            }
+
+            var fi = document.querySelector('input[type="file"][name="sourceFile"], input[type="file"]');
+            if (fi) {
+              try { fi.value = ''; } catch(_) {}
+            }
+
+            if (window.ace && typeof window.ace.edit === 'function') {
+              ['sourceCodeTextarea', 'sourceCodeTextarea_ace', 'editor', 'sourceCode', 'source'].forEach(function(id) {
+                try {
+                  var el = document.getElementById(id);
+                  if (el) {
+                    var ed = window.ace.edit(el);
+                    if (ed && typeof ed.setValue === 'function') ed.setValue(code, 1);
+                  }
+                } catch (_) {}
+              });
+              document.querySelectorAll('.ace_editor').forEach(function(el) {
+                try {
+                  var ed = window.ace.edit(el);
+                  if (ed && typeof ed.setValue === 'function') ed.setValue(code, 1);
+                } catch (_) {}
+              });
+            }
+
+            if (window.editor && typeof window.editor.setValue === 'function') {
+              try { window.editor.setValue(code, 1); } catch(_) {}
+            }
+            if (window.aceEditor && typeof window.aceEditor.setValue === 'function') {
+              try { window.aceEditor.setValue(code, 1); } catch(_) {}
+            }
+            if (window.$) {
+              try { window.$('textarea#sourceCodeTextarea, textarea[name="source"]').val(code); } catch(_) {}
+            }
+          }
+
+          syncPage();
+          [50, 150, 300, 600, 1000].forEach(function(delay) {
+            setTimeout(syncPage, delay);
+          });
+
+          var forms = document.querySelectorAll('form.submitForm, form.submit-form, form[action*="/submit"]');
+          forms.forEach(function(f) {
+            f.addEventListener('submit', syncPage, true);
+          });
+        })();
+      `;
+      (doc.head || doc.documentElement || doc.body).appendChild(script);
+      setTimeout(() => {
+        try { script.remove(); } catch (_) {}
+      }, 1000);
+    } catch (_) {}
+
+    // 6. Inject Leetfox Confirmation Banner with smooth auto-submit countdown
     if (!doc.getElementById('lf-cf-submit-banner')) {
       const banner = createElement('div', {
         id: 'lf-cf-submit-banner',
         className: 'lf-submit-page-banner'
       });
 
-      const icon = createElement('span', { className: 'lf-banner-icon' }, '🦊');
+      const icon = createElement('a', {
+        className: 'lf-banner-icon',
+        href: 'https://github.com/anishraj836/Leetfox',
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        title: 'Leetfox on GitHub'
+      }, '[Leetfox]');
       const textGroup = createElement('div', { className: 'lf-banner-text' });
       const bannerTitle = createElement('strong', {}, `Leetfox loaded your solution for ${pending.problemId}`);
       
-      let secondsLeft = 3;
-      const bannerSub = createElement('p', {}, `Language: ${pending.language.toUpperCase()}. Auto-submitting in ${secondsLeft}s...`);
+      let secondsLeft = 1;
+      const bannerSub = createElement('p', {}, `Loaded solution (${pending.language.toUpperCase()}). Auto-submitting in ${secondsLeft}s...`);
 
       textGroup.appendChild(bannerTitle);
       textGroup.appendChild(bannerSub);
 
       let countdownTimer: any = null;
 
-      const triggerSubmit = () => {
+      const triggerSubmit = async () => {
         if (countdownTimer) clearInterval(countdownTimer);
-        bannerSub.textContent = 'Submitting solution to Codeforces now... 🚀';
-        const submitBtn = form.querySelector('input[type="submit"]') as HTMLElement;
+        countdownTimer = null;
+        bannerSub.textContent = 'Submitting solution to Codeforces now...';
+
+        // 1. Ensure action=submitSolutionFormSubmitted is set
+        let actionInput = form.querySelector('input[name="action"]') as HTMLInputElement;
+        if (!actionInput) {
+          actionInput = doc.createElement('input');
+          actionInput.type = 'hidden';
+          actionInput.name = 'action';
+          actionInput.value = 'submitSolutionFormSubmitted';
+          form.appendChild(actionInput);
+        } else {
+          actionInput.value = 'submitSolutionFormSubmitted';
+        }
+
+        // 2. Clear file input
+        clearFileInput();
+
+        // 3. Final guarantee on textarea content right before clicking
+        populateTextarea();
+
+        // 4. Synchronize Ace in Firefox page context
+        syncAceDirect(pending.code);
+
+        // 5. Submit the form via submit button so Codeforces calculates anti-bot security tokens (_tta, etc.)
+        const submitBtn = form.querySelector('input.submit, input[type="submit"], button[type="submit"]') as HTMLInputElement | HTMLButtonElement | null;
+        if (submitBtn) {
+          const rawSubmitBtn = (submitBtn as any)?.wrappedJSObject || submitBtn;
+          try {
+            rawSubmitBtn.disabled = false;
+            rawSubmitBtn.removeAttribute('disabled');
+          } catch (_) {}
+          try {
+            rawSubmitBtn.click();
+          } catch (_) {
+            try {
+              submitBtn.click();
+            } catch (_) {
+              HTMLFormElement.prototype.submit.call(form);
+            }
+          }
+        } else {
+          HTMLFormElement.prototype.submit.call(form);
+        }
+      };
+
+      const submitNowBtn = createElement('button', {
+        className: 'lf-btn lf-btn-primary',
+        type: 'button',
+        title: 'Submit this code immediately',
+        onClick: triggerSubmit
+      }, 'Submit Now');
+
+      const cancelBtn = createElement('button', {
+        className: 'lf-btn',
+        type: 'button',
+        title: 'Cancel auto-submission to review code',
+        onClick: () => {
+          if (countdownTimer) {
+            clearInterval(countdownTimer);
+            countdownTimer = null;
+          }
+          bannerSub.textContent = `Loaded solution (${pending.language.toUpperCase()}). Auto-submit paused. Click "Submit Now" when ready.`;
+          cancelBtn.style.display = 'none';
+        }
+      }, 'Cancel');
+
+      countdownTimer = setInterval(() => {
+        secondsLeft -= 1;
+        if (secondsLeft <= 0) {
+          clearInterval(countdownTimer);
+          countdownTimer = null;
+          triggerSubmit();
+        } else {
+          bannerSub.textContent = `Loaded solution (${pending.language.toUpperCase()}). Auto-submitting in ${secondsLeft}s...`;
+        }
+      }, 1000);
+
+      const btnGroup = createElement('div', { style: 'display: flex; gap: 8px; align-items: center;' });
+      btnGroup.appendChild(cancelBtn);
+      btnGroup.appendChild(submitNowBtn);
+
+      banner.appendChild(icon);
+      banner.appendChild(textGroup);
+      banner.appendChild(btnGroup);
+
+      form.parentNode?.insertBefore(banner, form);
+    }
+
+    return true;
+  }
+
+  /**
+   * Helper to select matching compiler on AtCoder submit form
+   */
+  private selectMatchingAtCoderLanguage(select: HTMLSelectElement, lang: string): void {
+    const l = lang.toLowerCase();
+    const options = Array.from(select.options);
+    let matchOption: HTMLOptionElement | undefined;
+
+    if (l === 'cpp') {
+      matchOption = options.find(o => /c\+\+.*23|c\+\+.*20|gnu c\+\+|gcc/i.test(o.text))
+        || options.find(o => /c\+\+/i.test(o.text));
+    } else if (l === 'python') {
+      matchOption = options.find(o => /python.*3|pypy.*3/i.test(o.text))
+        || options.find(o => /python/i.test(o.text));
+    } else if (l === 'java') {
+      matchOption = options.find(o => /java.*21|java.*17|openjdk/i.test(o.text))
+        || options.find(o => /java/i.test(o.text));
+    } else if (l === 'rust') {
+      matchOption = options.find(o => /rust/i.test(o.text));
+    } else if (l === 'go') {
+      matchOption = options.find(o => /\bgo\b/i.test(o.text));
+    }
+
+    if (matchOption) {
+      select.value = matchOption.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  }
+
+  /**
+   * Handles auto-filling and file submission on AtCoder submit page
+   */
+  public async handleAtCoderSubmitPage(doc: Document, url: URL): Promise<boolean> {
+    const isSubmit = url.pathname.includes('/submit') || url.pathname.includes('/tasks/');
+    if (!isSubmit) return false;
+
+    const pending = await this.getPendingSubmission();
+    if (!pending || pending.platform !== 'atcoder') return false;
+
+    const forms = Array.from(doc.querySelectorAll('form'));
+    const form = forms.find(f => (f.getAttribute('action') || '').includes('/submit') || f.querySelector('select[name="data.LanguageId"]') || f.querySelector('select[name="data.TaskScreenName"]')) || (forms[0] as HTMLFormElement | undefined);
+    if (!form) return false;
+
+    // 1. Task select
+    const taskSelect = form.querySelector('select[name="data.TaskScreenName"]') as HTMLSelectElement;
+    if (taskSelect && pending.problemId) {
+      const option = Array.from(taskSelect.options).find(o =>
+        o.value.toLowerCase() === pending.problemId.toLowerCase() ||
+        o.text.toLowerCase().includes(pending.problemId.toLowerCase())
+      );
+      if (option) {
+        taskSelect.value = option.value;
+        taskSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+
+    // 2. Language select
+    const langSelect = form.querySelector('select[name="data.LanguageId"]') as HTMLSelectElement;
+    if (langSelect) {
+      this.selectMatchingAtCoderLanguage(langSelect, pending.language);
+    }
+
+    // 3. Convert code to file and attach to file input if available
+    const file = this.createSubmissionFile(pending.code, pending.language);
+    const fileInput = form.querySelector('input[type="file"]') as HTMLInputElement;
+    if (fileInput) {
+      try {
+        const DT = (doc.defaultView as any)?.DataTransfer || (globalThis as any).DataTransfer;
+        if (typeof DT !== 'undefined') {
+          const dt = new DT();
+          dt.items.add(file);
+          try {
+            fileInput.files = dt.files;
+          } catch (_) {}
+          if (!fileInput.files || fileInput.files.length === 0) {
+            Object.defineProperty(fileInput, 'files', { value: dt.files || [file], configurable: true, writable: true });
+          }
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        } else {
+          Object.defineProperty(fileInput, 'files', { value: [file], configurable: true, writable: true });
+          fileInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } catch (_) {}
+    }
+
+    // 4. Set sourceCode textarea and CodeMirror editor if active
+    const textarea = form.querySelector('textarea[name="sourceCode"], textarea.plain-textarea') as HTMLTextAreaElement;
+    if (textarea) {
+      textarea.value = pending.code;
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      textarea.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    try {
+      const script = doc.createElement('script');
+      script.textContent = `
+        (function() {
+          try {
+            var cm = document.querySelector('.CodeMirror');
+            if (cm && cm.CodeMirror) {
+              cm.CodeMirror.setValue(${JSON.stringify(pending.code)});
+            }
+          } catch (_) {}
+        })();
+      `;
+      (doc.head || doc.documentElement || doc.body).appendChild(script);
+      script.remove();
+    } catch (_) {}
+
+    // 5. Confirmation banner
+    if (!doc.getElementById('lf-atcoder-submit-banner')) {
+      const banner = createElement('div', {
+        id: 'lf-atcoder-submit-banner',
+        className: 'lf-submit-page-banner'
+      });
+
+      const icon = createElement('a', {
+        className: 'lf-banner-icon',
+        href: 'https://github.com/anishraj836/Leetfox',
+        target: '_blank',
+        rel: 'noopener noreferrer',
+        title: 'Leetfox on GitHub'
+      }, '[Leetfox]');
+      const textGroup = createElement('div', { className: 'lf-banner-text' });
+      const bannerTitle = createElement('strong', {}, `Leetfox loaded your solution for ${pending.problemId}`);
+      
+      let secondsLeft = 3;
+      const bannerSub = createElement('p', {}, `Attached ${file.name}. Auto-submitting in ${secondsLeft}s...`);
+
+      textGroup.appendChild(bannerTitle);
+      textGroup.appendChild(bannerSub);
+
+      let countdownTimer: any = null;
+
+      const triggerSubmit = async () => {
+        if (countdownTimer) clearInterval(countdownTimer);
+        bannerSub.textContent = 'Submitting solution to AtCoder now...';
+        await this.clearPendingSubmission();
+        const submitBtn = form.querySelector('button[type="submit"], input[type="submit"]') as HTMLElement;
         if (submitBtn) {
           submitBtn.click();
         } else {
@@ -511,7 +1229,7 @@ export class SubmissionManager {
         type: 'button',
         title: 'Submit this code immediately',
         onClick: triggerSubmit
-      }, 'Submit Now 🚀');
+      }, 'Submit Now');
 
       const cancelBtn = createElement('button', {
         className: 'lf-btn',
@@ -522,10 +1240,10 @@ export class SubmissionManager {
             clearInterval(countdownTimer);
             countdownTimer = null;
           }
-          bannerSub.textContent = `Language: ${pending.language.toUpperCase()}. Auto-submit paused. Click "Submit Now" when ready.`;
+          bannerSub.textContent = `Attached ${file.name}. Auto-submit paused. Click "Submit Now" when ready.`;
           cancelBtn.style.display = 'none';
         }
-      }, 'Cancel ⏸️');
+      }, 'Cancel');
 
       countdownTimer = setInterval(() => {
         secondsLeft -= 1;
@@ -534,7 +1252,7 @@ export class SubmissionManager {
           countdownTimer = null;
           triggerSubmit();
         } else {
-          bannerSub.textContent = `Language: ${pending.language.toUpperCase()}. Auto-submitting in ${secondsLeft}s...`;
+          bannerSub.textContent = `Attached ${file.name}. Auto-submitting in ${secondsLeft}s...`;
         }
       }, 1000);
 

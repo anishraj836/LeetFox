@@ -43,7 +43,7 @@ export class CommandPalette {
 
     // Search bar
     const inputWrapper = createElement('div', { className: 'lf-palette-input-wrapper' });
-    const searchIcon = createElement('span', {}, '🔍');
+    const searchIcon = createElement('span', { className: 'lf-palette-search-icon' }, '>');
     this.input = createElement('input', {
       className: 'lf-palette-input',
       type: 'text',

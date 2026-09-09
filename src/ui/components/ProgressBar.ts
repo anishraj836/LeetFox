@@ -10,7 +10,7 @@ export class ProgressBar {
     this.element = createElement('div', { className: 'lf-progress-card' });
 
     const header = createElement('div', { className: 'lf-progress-header' });
-    const title = createElement('span', { className: 'lf-progress-title' }, `📁 ${this.progress.category} Progress`);
+    const title = createElement('span', { className: 'lf-progress-title' }, `${this.progress.category} Progress`);
 
     const pct = this.progress.totalCount > 0
       ? Math.round((this.progress.solvedCount / this.progress.totalCount) * 100)

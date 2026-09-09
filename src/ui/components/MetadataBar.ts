@@ -18,15 +18,42 @@ export class MetadataBar {
     titleEl.appendChild(titleText);
     titleRow.appendChild(titleEl);
 
-    // Quick Submit button if submitUrl exists
+    // Action buttons in titleRow
+    const actionsGroup = createElement('div', { className: 'lf-metadata-actions' });
+
+    if (this.problem.isLiveContest) {
+      const lockedSubmissionsBtn = createElement('button', {
+        className: 'lf-btn lf-btn-locked',
+        title: 'Submissions are disabled during active contests to comply with contest rules.',
+        disabled: true
+      }, 'Submissions');
+      actionsGroup.appendChild(lockedSubmissionsBtn);
+    } else {
+      const submissionsUrl = this.problem.mySubmissionsUrl || this.problem.submissionsUrl;
+      if (submissionsUrl) {
+        const submissionsBtn = createElement('a', {
+          className: 'lf-btn',
+          href: submissionsUrl,
+          target: '_blank',
+          rel: 'noopener noreferrer',
+          title: 'View Submissions'
+        }, 'Submissions');
+        actionsGroup.appendChild(submissionsBtn);
+      }
+    }
+
     if (this.problem.submitUrl) {
       const submitBtn = createElement('a', {
         className: 'lf-btn lf-btn-primary',
         href: this.problem.submitUrl,
         target: '_self',
         title: 'Submit Code'
-      }, '🚀 Submit Code');
-      titleRow.appendChild(submitBtn);
+      }, 'Submit Code');
+      actionsGroup.appendChild(submitBtn);
+    }
+
+    if (actionsGroup.hasChildNodes()) {
+      titleRow.appendChild(actionsGroup);
     }
 
     this.element.appendChild(titleRow);
@@ -38,28 +65,28 @@ export class MetadataBar {
     if (this.problem.difficulty !== undefined) {
       const diffBadge = createElement('span', {
         className: 'lf-spec-badge difficulty'
-      }, `★ Rating: ${this.problem.difficulty}`);
+      }, `Rating: ${this.problem.difficulty}`);
       specsGroup.appendChild(diffBadge);
     }
 
     if (this.problem.limits.timeLimit) {
       const timeBadge = createElement('span', {
         className: 'lf-spec-badge'
-      }, `⏱ ${this.problem.limits.timeLimit}`);
+      }, `Time: ${this.problem.limits.timeLimit}`);
       specsGroup.appendChild(timeBadge);
     }
 
     if (this.problem.limits.memoryLimit) {
       const memBadge = createElement('span', {
         className: 'lf-spec-badge'
-      }, `💾 ${this.problem.limits.memoryLimit}`);
+      }, `Memory: ${this.problem.limits.memoryLimit}`);
       specsGroup.appendChild(memBadge);
     }
 
     if (this.problem.contest?.name) {
       const contestBadge = createElement('span', {
         className: 'lf-spec-badge'
-      }, `🏆 ${this.problem.contest.name}`);
+      }, `Contest: ${this.problem.contest.name}`);
       specsGroup.appendChild(contestBadge);
     }
 

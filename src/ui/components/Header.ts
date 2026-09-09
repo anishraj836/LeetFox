@@ -22,6 +22,7 @@ export class Header {
   private themeBtn: HTMLButtonElement;
   private originalToggleBtn: HTMLButtonElement;
   private splitToggleBtn: HTMLButtonElement;
+  private submissionsBtn: HTMLButtonElement;
   private solutionsBtn: HTMLButtonElement;
   private isSplitMode = true;
 
@@ -41,9 +42,11 @@ export class Header {
 
     const logo = createElement('a', {
       className: 'lf-brand-logo',
-      href: this.problem.navigation.problemsetUrl || '#',
-      title: 'Leetfox'
-    }, '🦊 Leetfox');
+      href: 'https://github.com/anishraj836/Leetfox',
+      target: '_blank',
+      rel: 'noopener noreferrer',
+      title: 'Leetfox on GitHub'
+    }, 'Leetfox');
 
     const platformBadge = createElement('span', {
       className: 'lf-platform-badge'
@@ -97,25 +100,43 @@ export class Header {
     }, this.state.bookmarked ? '★' : '☆');
 
     this.notesBtn = createElement('button', {
-      className: `lf-btn lf-btn-icon lf-btn-notes ${this.state.notes ? 'active' : ''}`,
+      className: `lf-btn lf-btn-notes ${this.state.notes ? 'active' : ''}`,
       title: 'Problem Notes (N)',
       onClick: () => this.callbacks.onToggleNotes()
-    }, '📝');
+    }, 'Notes');
 
     // Split View Toggle
     this.splitToggleBtn = createElement('button', {
       className: 'lf-btn',
       title: 'Toggle Code Editor Split Screen',
       onClick: () => this.callbacks.onToggleSplitMode()
-    }, '◫ Split');
+    }, 'Split');
 
-    // Solutions / Submissions Button with Live Contest Anti-Cheat Guard
+    // Submissions Button with Live Contest Anti-Cheat Guard
+    if (this.problem.isLiveContest) {
+      this.submissionsBtn = createElement('button', {
+        className: 'lf-btn lf-btn-locked',
+        title: 'Submissions are disabled during active contests to comply with contest rules.',
+        disabled: true
+      }, 'Submissions');
+    } else {
+      const submissionsUrl = this.problem.mySubmissionsUrl || this.problem.submissionsUrl;
+      this.submissionsBtn = createElement('button', {
+        className: `lf-btn ${!submissionsUrl ? 'disabled' : ''}`,
+        title: submissionsUrl ? 'View Submissions' : 'No submissions found for this problem',
+        onClick: () => {
+          if (submissionsUrl) window.open(submissionsUrl, '_blank');
+        }
+      }, 'Submissions');
+    }
+
+    // Solutions / Editorial Button with Live Contest Anti-Cheat Guard
     if (this.problem.isLiveContest) {
       this.solutionsBtn = createElement('button', {
         className: 'lf-btn lf-btn-locked',
-        title: 'Solutions & Submissions are hidden during active contests to comply with contest rules.',
+        title: 'Solutions & Editorial are hidden during active contests to comply with contest rules.',
         disabled: true
-      }, '🔒 Solutions');
+      }, 'Solutions');
     } else {
       const solUrl = this.problem.editorialUrl || this.problem.solutionsUrl;
       this.solutionsBtn = createElement('button', {
@@ -124,7 +145,7 @@ export class Header {
         onClick: () => {
           if (solUrl) window.open(solUrl, '_blank');
         }
-      }, '💡 Solutions');
+      }, 'Solutions');
     }
 
     const paletteBtn = createElement('button', {
@@ -134,10 +155,10 @@ export class Header {
     }, '⌘K');
 
     this.themeBtn = createElement('button', {
-      className: 'lf-btn lf-btn-icon',
+      className: 'lf-btn',
       title: 'Toggle Dark/Light Mode (D)',
       onClick: () => this.callbacks.onToggleTheme()
-    }, this.prefs.theme === 'dark' ? '☀️' : '🌙');
+    }, this.prefs.theme === 'dark' ? 'Light' : 'Dark');
 
     const helpBtn = createElement('button', {
       className: 'lf-btn lf-btn-icon',
@@ -156,6 +177,7 @@ export class Header {
     actionsGroup.appendChild(this.bookmarkBtn);
     actionsGroup.appendChild(this.notesBtn);
     actionsGroup.appendChild(this.splitToggleBtn);
+    actionsGroup.appendChild(this.submissionsBtn);
     actionsGroup.appendChild(this.solutionsBtn);
     actionsGroup.appendChild(paletteBtn);
     actionsGroup.appendChild(this.themeBtn);
@@ -169,7 +191,7 @@ export class Header {
 
   public updateSplitMode(isSplit: boolean): void {
     this.isSplitMode = isSplit;
-    this.splitToggleBtn.textContent = this.isSplitMode ? '◫ Split' : '▢ Full';
+    this.splitToggleBtn.textContent = this.isSplitMode ? 'Split' : 'Full';
   }
 
   public updateState(state: ProblemState): void {
@@ -191,15 +213,15 @@ export class Header {
     }
 
     if (this.state.notes && this.state.notes.trim()) {
-      this.notesBtn.className = 'lf-btn lf-btn-icon lf-btn-notes active';
+      this.notesBtn.className = 'lf-btn lf-btn-notes active';
     } else {
-      this.notesBtn.className = 'lf-btn lf-btn-icon lf-btn-notes';
+      this.notesBtn.className = 'lf-btn lf-btn-notes';
     }
   }
 
   public updatePreferences(prefs: UserPreferences): void {
     this.prefs = prefs;
-    this.themeBtn.textContent = this.prefs.theme === 'dark' ? '☀️' : '🌙';
+    this.themeBtn.textContent = this.prefs.theme === 'dark' ? 'Light' : 'Dark';
     this.originalToggleBtn.textContent = this.prefs.hideOriginalPage ? 'Original (O)' : 'Leetfox View';
   }
 

@@ -1,6 +1,7 @@
 import { CSESAdapter } from '../src/platforms/cses/CSESAdapter';
 import { DEFAULT_PROBLEM_STATE } from '../src/core/models/state';
 import { Header } from '../src/ui/components/Header';
+import { MetadataBar } from '../src/ui/components/MetadataBar';
 import { KeyboardCheatSheet } from '../src/ui/components/KeyboardCheatSheet';
 import { sanitizeHtml } from '../src/core/utils/sanitize';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -328,7 +329,7 @@ describe('Modal Close Button and State Toggle', () => {
   });
 });
 
-import { CodeEditorPane } from '../src/ui/components/CodeEditorPane';
+import { CodeEditorPane, getEditorThemeExtensions, leetfoxLightHighlightStyle, leetfoxDarkHighlightStyle } from '../src/ui/components/CodeEditorPane';
 
 describe('LeetCode-Style Code Editor & Split Workspace', () => {
   it('renders code editor pane with language selector and testcase console', () => {
@@ -483,11 +484,32 @@ describe('Live Contest Protection & Solutions Button', () => {
       onOpenShortcuts: () => {}
     });
 
-    const solBtn = header.getElement().querySelector('.lf-btn-locked') as HTMLButtonElement;
-    expect(solBtn).not.toBeNull();
-    expect(solBtn.disabled).toBe(true);
-    expect(solBtn.textContent).toContain('Solutions');
-    expect(solBtn.title).toContain('hidden during active contests');
+    const lockedBtns = Array.from(header.getElement().querySelectorAll('.lf-btn-locked')) as HTMLButtonElement[];
+    expect(lockedBtns.length).toBe(2);
+
+    const subBtn = lockedBtns.find(b => b.textContent?.includes('Submissions'));
+    expect(subBtn).toBeDefined();
+    expect(subBtn?.disabled).toBe(true);
+    expect(subBtn?.title).toContain('disabled during active contests');
+
+    const solBtn = lockedBtns.find(b => b.textContent?.includes('Solutions'));
+    expect(solBtn).toBeDefined();
+    expect(solBtn?.disabled).toBe(true);
+    expect(solBtn?.title).toContain('hidden during active contests');
+
+    // Verify MetadataBar locks submissions during live contest
+    const metaBar = new MetadataBar(problem!);
+    const metaLockedBtn = metaBar.getElement().querySelector('.lf-btn-locked') as HTMLButtonElement;
+    expect(metaLockedBtn).not.toBeNull();
+    expect(metaLockedBtn.disabled).toBe(true);
+    expect(metaLockedBtn.textContent).toContain('Submissions');
+
+    // Verify CodeEditorPane locks submissions during live contest
+    const editor = new CodeEditorPane(problem!);
+    const editorLockedSubBtn = Array.from(editor.getElement().querySelectorAll('.lf-btn-locked'))
+      .find(b => b.textContent?.includes('Submissions')) as HTMLButtonElement;
+    expect(editorLockedSubBtn).toBeDefined();
+    expect(editorLockedSubBtn.disabled).toBe(true);
   });
 
   it('enables solutions button during practice/problemset mode', () => {
@@ -533,14 +555,14 @@ describe('Live Contest Protection & Solutions Button', () => {
     await app.mount(doc);
 
     const splitBtn = doc.querySelector('.lf-header')!.querySelectorAll('.lf-btn')[3] as HTMLButtonElement;
-    expect(splitBtn.textContent).toBe('◫ Split');
+    expect(splitBtn.textContent).toBe('Split');
 
     // Toggle via app
     app.toggleSplitMode();
-    expect(splitBtn.textContent).toBe('▢ Full');
+    expect(splitBtn.textContent).toBe('Full');
 
     app.toggleSplitMode();
-    expect(splitBtn.textContent).toBe('◫ Split');
+    expect(splitBtn.textContent).toBe('Split');
 
     app.destroy();
   });
@@ -735,3 +757,286 @@ describe('Submission Edge Cases & Language Selection', () => {
     expect(select.value).toBe('31'); // Python 3
   });
 });
+
+describe('Custom & Editable Test Cases in Console', () => {
+  const createMockProblem = () => ({
+    platform: 'codeforces' as const,
+    id: '4A',
+    qualifiedId: 'codeforces:4a',
+    title: 'Watermelon',
+    statementHtml: '<p>statement</p>',
+    examples: [
+      { id: 1, input: '8', output: 'YES' },
+      { id: 2, input: '5', output: 'NO' }
+    ],
+    tags: [],
+    limits: {},
+    navigation: {},
+    url: 'https://codeforces.com/contest/4/problem/A'
+  });
+
+  it('renders editable testcase input and expected output textareas', () => {
+    const pane = new CodeEditorPane(createMockProblem());
+    const el = pane.getElement();
+
+    const textareas = el.querySelectorAll<HTMLTextAreaElement>('textarea.lf-console-textarea');
+    expect(textareas.length).toBe(2);
+
+    const [inputTextarea, outputTextarea] = Array.from(textareas);
+    expect(inputTextarea.value).toBe('8');
+    expect(outputTextarea.value).toBe('YES');
+
+    // Edit input
+    inputTextarea.value = '100';
+    inputTextarea.dispatchEvent(new Event('input'));
+    expect((pane as any).customExamples[0].input).toBe('100');
+
+    // Edit expected output
+    outputTextarea.value = 'YES';
+    outputTextarea.dispatchEvent(new Event('input'));
+    expect((pane as any).customExamples[0].output).toBe('YES');
+  });
+
+  it('clears prior run results when test case input is edited', () => {
+    const pane = new CodeEditorPane(createMockProblem());
+    const el = pane.getElement();
+
+    // Set mock test result
+    (pane as any).testResults.set(0, {
+      status: 'accepted',
+      programOutput: 'YES',
+      expectedOutput: 'YES'
+    });
+
+    const inputTextarea = el.querySelector<HTMLTextAreaElement>('textarea.lf-console-textarea');
+    expect(inputTextarea).not.toBeNull();
+    inputTextarea!.value = '42';
+    inputTextarea!.dispatchEvent(new Event('input'));
+
+    expect((pane as any).testResults.has(0)).toBe(false);
+  });
+
+  it('adds a new test case when + Add Case is clicked', () => {
+    const pane = new CodeEditorPane(createMockProblem());
+    const el = pane.getElement();
+
+    const addBtn = el.querySelector<HTMLButtonElement>('.lf-btn-add-case');
+    expect(addBtn).not.toBeNull();
+    expect(addBtn?.textContent).toContain('+ Add Case');
+
+    addBtn?.click();
+
+    expect((pane as any).customExamples.length).toBe(3);
+    expect((pane as any).activeExampleIndex).toBe(2);
+
+    const tabs = el.querySelectorAll('.lf-console-tab:not(.lf-btn-add-case)');
+    expect(tabs.length).toBe(3);
+  });
+
+  it('deletes the active test case when Delete Case is clicked', () => {
+    const pane = new CodeEditorPane(createMockProblem());
+    const el = pane.getElement();
+
+    expect((pane as any).customExamples.length).toBe(2);
+
+    const deleteBtn = el.querySelector<HTMLButtonElement>('.lf-btn-delete');
+    expect(deleteBtn).not.toBeNull();
+    expect(deleteBtn?.textContent).toContain('Delete Case');
+
+    deleteBtn?.click();
+
+    expect((pane as any).customExamples.length).toBe(1);
+    expect((pane as any).customExamples[0].input).toBe('5'); // 2nd case shifted down
+  });
+
+  it('resets custom test cases back to problem defaults when Reset Cases is clicked', () => {
+    const pane = new CodeEditorPane(createMockProblem());
+    const el = pane.getElement();
+
+    // Modify active case
+    (pane as any).addNewTestCase('999', 'OUTPUT');
+    expect((pane as any).customExamples.length).toBe(3);
+
+    // Re-render
+    (pane as any).renderTestcaseTabs();
+
+    const resetBtn = el.querySelector<HTMLButtonElement>('.lf-btn-reset');
+    expect(resetBtn).not.toBeNull();
+    expect(resetBtn?.textContent).toContain('Reset Cases');
+
+    resetBtn?.click();
+
+    expect((pane as any).customExamples.length).toBe(2);
+    expect((pane as any).customExamples[0].input).toBe('8');
+    expect((pane as any).customExamples[1].input).toBe('5');
+  });
+
+  it('renders Run All button in the console tab header', () => {
+    const pane = new CodeEditorPane(createMockProblem());
+    const el = pane.getElement();
+
+    const runAllBtn = el.querySelector<HTMLButtonElement>('.lf-btn-run-all');
+    expect(runAllBtn).not.toBeNull();
+    expect(runAllBtn?.textContent).toContain('Run All');
+  });
+
+  it('removes test case directly via tab close button (×)', () => {
+    const pane = new CodeEditorPane(createMockProblem());
+    const el = pane.getElement();
+
+    const closeButtons = el.querySelectorAll<HTMLSpanElement>('.lf-console-tab-close');
+    expect(closeButtons.length).toBe(2);
+
+    // Click remove on first tab
+    closeButtons[0].click();
+
+    expect((pane as any).customExamples.length).toBe(1);
+    expect((pane as any).customExamples[0].input).toBe('5');
+  });
+
+  it('clears input and output when only one testcase remains and clear is clicked', () => {
+    const mockSingle = createMockProblem();
+    mockSingle.examples = [{ id: 1, input: '42', output: 'ANS' }];
+    const pane = new CodeEditorPane(mockSingle);
+    const el = pane.getElement();
+
+    const clearBtn = el.querySelector<HTMLButtonElement>('.lf-btn-clear');
+    expect(clearBtn).not.toBeNull();
+    expect(clearBtn?.textContent).toContain('Clear Case');
+
+    clearBtn?.click();
+
+    expect((pane as any).customExamples[0].input).toBe('');
+    expect((pane as any).customExamples[0].output).toBe('');
+  });
+
+  it('enables disabled submit button on Codeforces submit page and sets code in textarea', async () => {
+    const subManager = SubmissionManager.getInstance();
+    await subManager.setPendingSubmission({
+      platform: 'codeforces',
+      problemId: '2260A',
+      language: 'cpp',
+      code: '#include <iostream>\nint main() { return 0; }',
+      timestamp: Date.now()
+    });
+
+    const cfHtml = `
+      <html><body>
+        <form class="submitForm" action="/problemset/submit" method="post">
+          <input name="submittedProblemCode" value="">
+          <select name="programTypeId"><option value="54">GNU G++20</option></select>
+          <textarea id="sourceCodeTextarea" name="source"></textarea>
+          <input type="file" name="sourceFile">
+          <input class="submit" type="submit" value="Submit" disabled="disabled">
+        </form>
+      </body></html>
+    `;
+
+    const dom = new JSDOM(cfHtml, { url: 'https://codeforces.com/problemset/submit' });
+    const handled = await subManager.handleCodeforcesSubmitPage(dom.window.document, new URL('https://codeforces.com/problemset/submit'));
+
+    expect(handled).toBe(true);
+    const ta = dom.window.document.getElementById('sourceCodeTextarea') as HTMLTextAreaElement;
+    expect(ta.value).toContain('int main()');
+    expect(ta.textContent).toContain('int main()');
+
+    const submitBtn = dom.window.document.querySelector('input.submit') as HTMLInputElement;
+    expect(submitBtn).not.toBeNull();
+    // Verify submit button is enabled
+    expect(submitBtn.disabled).toBe(false);
+  });
+
+  it('selects GNU G++20 instead of GNU G++17 when submitting C++', async () => {
+    const subManager = SubmissionManager.getInstance();
+    await subManager.setPendingSubmission({
+      platform: 'codeforces',
+      problemId: '2260A',
+      language: 'cpp',
+      code: '#include <iostream>\nint main() { return 0; }',
+      timestamp: Date.now()
+    });
+
+    const cfHtml = `
+      <html><body>
+        <form class="submitForm" action="/problemset/submit" method="post">
+          <input name="submittedProblemCode" value="">
+          <select name="programTypeId">
+            <option value="43">GNU G++14 6.4.0</option>
+            <option value="50">GNU G++17 7.3.0</option>
+            <option value="54">GNU G++17 9.2.0 (64 bit, msys2)</option>
+            <option value="89">GNU G++20 13.2 (64 bit, winlibs)</option>
+            <option value="90">GNU G++23 14.2.0 (64 bit, msys2)</option>
+          </select>
+          <textarea id="sourceCodeTextarea" name="source"></textarea>
+          <input class="submit" type="submit" value="Submit">
+        </form>
+      </body></html>
+    `;
+
+    const dom = new JSDOM(cfHtml, { url: 'https://codeforces.com/problemset/submit' });
+    await subManager.handleCodeforcesSubmitPage(dom.window.document, new URL('https://codeforces.com/problemset/submit'));
+
+    const select = dom.window.document.querySelector('select[name="programTypeId"]') as HTMLSelectElement;
+    expect(select.value).toBe('89'); // Must choose G++20, NOT G++17!
+  });
+
+  it('selects GNU G++17 when cpp17 is explicitly selected', async () => {
+    const subManager = SubmissionManager.getInstance();
+    await subManager.setPendingSubmission({
+      platform: 'codeforces',
+      problemId: '2260A',
+      language: 'cpp17',
+      code: '#include <iostream>\nint main() { return 0; }',
+      timestamp: Date.now()
+    });
+
+    const cfHtml = `
+      <html><body>
+        <form class="submitForm" action="/problemset/submit" method="post">
+          <input name="submittedProblemCode" value="">
+          <select name="programTypeId">
+            <option value="43">GNU G++14 6.4.0</option>
+            <option value="50">GNU G++17 7.3.0</option>
+            <option value="54">GNU G++17 9.2.0 (64 bit, msys2)</option>
+            <option value="89">GNU G++20 13.2 (64 bit, winlibs)</option>
+          </select>
+          <textarea id="sourceCodeTextarea" name="source"></textarea>
+          <input class="submit" type="submit" value="Submit">
+        </form>
+      </body></html>
+    `;
+
+    const dom = new JSDOM(cfHtml, { url: 'https://codeforces.com/problemset/submit' });
+    await subManager.handleCodeforcesSubmitPage(dom.window.document, new URL('https://codeforces.com/problemset/submit'));
+
+    const select = dom.window.document.querySelector('select[name="programTypeId"]') as HTMLSelectElement;
+    expect(select.value).toBe('54'); // 64 bit G++17
+  });
+
+  it('supports light theme and provides high-contrast syntax highlighting', () => {
+    const mockProblem = createMockProblem();
+    const pane = new CodeEditorPane(mockProblem, 'light');
+    expect(pane.getTheme()).toBe('light');
+
+    // Switch theme to dark then back to light
+    pane.setTheme('dark');
+    expect(pane.getTheme()).toBe('dark');
+
+    pane.setTheme('light');
+    expect(pane.getTheme()).toBe('light');
+
+    // Verify distinct theme extension configurations
+    const lightExts = getEditorThemeExtensions('light');
+    const darkExts = getEditorThemeExtensions('dark');
+    expect(lightExts).toHaveLength(2);
+    expect(darkExts).toHaveLength(2);
+    expect(lightExts).not.toEqual(darkExts);
+
+    // Verify both highlight styles exist and are distinct
+    expect(leetfoxLightHighlightStyle).toBeDefined();
+    expect(leetfoxDarkHighlightStyle).toBeDefined();
+    expect(leetfoxLightHighlightStyle).not.toBe(leetfoxDarkHighlightStyle);
+  });
+});
+
+

@@ -102,7 +102,7 @@ export class CompletionTrie {
 export function createTrieForLanguage(lang: string): CompletionTrie {
   const trie = new CompletionTrie();
 
-  if (lang === 'cpp') {
+  if (lang === 'cpp' || lang.startsWith('cpp')) {
     populateCppTrie(trie);
   } else if (lang === 'python') {
     populatePythonTrie(trie);

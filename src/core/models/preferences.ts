@@ -9,6 +9,8 @@ export interface UserPreferences {
   autoCopyExampleOnClick: boolean;
   editorSuggestions?: boolean;
   defaultLanguage?: string;
+  horizontalSplitPercent?: number;
+  consoleHeightPx?: number;
 }
 
 export const DEFAULT_PREFERENCES: UserPreferences = {
@@ -18,5 +20,7 @@ export const DEFAULT_PREFERENCES: UserPreferences = {
   hideOriginalPage: true,
   autoCopyExampleOnClick: true,
   editorSuggestions: true,
+  horizontalSplitPercent: 48,
+  consoleHeightPx: 270,
 };
 

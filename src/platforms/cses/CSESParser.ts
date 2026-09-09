@@ -20,6 +20,8 @@ export class CSESParser {
       const navigation = this.extractNavigation(doc, url);
 
       const solutionsUrl = id ? `https://cses.fi/problemset/stats/${id}/` : undefined;
+      const submissionsUrl = this.extractSubmissionsUrl(doc, url, id);
+      const mySubmissionsUrl = this.extractMySubmissionsUrl(doc, url, id);
 
       return {
         platform: 'cses',
@@ -38,6 +40,8 @@ export class CSESParser {
         url: url.href,
         submitUrl: this.extractSubmitUrl(doc, url, id),
         solutionsUrl,
+        submissionsUrl,
+        mySubmissionsUrl,
         isLiveContest: false
       };
     } catch (err) {
@@ -308,6 +312,30 @@ export class CSESParser {
     }
     if (taskId) {
       return `https://cses.fi/problemset/submit/${taskId}/`;
+    }
+    return undefined;
+  }
+
+  private extractSubmissionsUrl(doc: Document, currentUrl: URL, taskId?: string): string | undefined {
+    const statsTab = doc.querySelector('.title-block .nav a[href*="/stats/"]');
+    if (statsTab) {
+      const href = statsTab.getAttribute('href');
+      if (href) return new URL(href, currentUrl).href;
+    }
+    if (taskId) {
+      return `https://cses.fi/problemset/stats/${taskId}/`;
+    }
+    return undefined;
+  }
+
+  private extractMySubmissionsUrl(doc: Document, currentUrl: URL, taskId?: string): string | undefined {
+    const resultTab = doc.querySelector('.title-block .nav a[href*="/result/"]');
+    if (resultTab) {
+      const href = resultTab.getAttribute('href');
+      if (href) return new URL(href, currentUrl).href;
+    }
+    if (taskId) {
+      return `https://cses.fi/problemset/result/${taskId}/`;
     }
     return undefined;
   }

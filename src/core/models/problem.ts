@@ -43,6 +43,8 @@ export interface Problem {
   url: string;
   submitUrl?: string;
   solutionsUrl?: string;
+  submissionsUrl?: string;
+  mySubmissionsUrl?: string;
   editorialUrl?: string;
   isLiveContest?: boolean;
 }

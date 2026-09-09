@@ -14,7 +14,11 @@
     "*://codeforces.net/*",
     "*://*.codeforces.net/*",
     "*://cses.fi/*",
-    "*://*.cses.fi/*"
+    "*://*.cses.fi/*",
+    "*://atcoder.jp/*",
+    "*://*.atcoder.jp/*",
+    "https://wandbox.org/*",
+    "https://ce.judge0.com/*"
   ],
   "background": {
     "scripts": ["background.js"]
@@ -27,7 +31,9 @@
         "*://codeforces.net/*",
         "*://*.codeforces.net/*",
         "*://cses.fi/*",
-        "*://*.cses.fi/*"
+        "*://*.cses.fi/*",
+        "*://atcoder.jp/*",
+        "*://*.atcoder.jp/*"
       ],
       "js": ["content.js"],
       "css": ["content.css"],

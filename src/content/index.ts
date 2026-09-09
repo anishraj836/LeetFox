@@ -26,7 +26,7 @@ async function bootstrap(): Promise<void> {
     const currentUrl = new URL(currentUrlStr);
     const normalizedUrl = currentUrl.origin + currentUrl.pathname;
 
-    // Handle submit pages for CSES and Codeforces
+    // Handle submit pages for CSES, Codeforces, and AtCoder
     const subManager = SubmissionManager.getInstance();
     if (currentUrl.hostname.includes('cses.fi') && currentUrl.pathname.includes('/submit/')) {
       const handled = await subManager.handleCSESSubmitPage(document, currentUrl);
@@ -34,6 +34,10 @@ async function bootstrap(): Promise<void> {
     }
     if ((currentUrl.hostname.includes('codeforces.com') || currentUrl.hostname.includes('codeforces.net')) && currentUrl.pathname.includes('/submit')) {
       const handled = await subManager.handleCodeforcesSubmitPage(document, currentUrl);
+      if (handled) return;
+    }
+    if (currentUrl.hostname.includes('atcoder.jp') && (currentUrl.pathname.includes('/submit') || currentUrl.pathname.includes('/tasks/'))) {
+      const handled = await subManager.handleAtCoderSubmitPage(document, currentUrl);
       if (handled) return;
     }
 

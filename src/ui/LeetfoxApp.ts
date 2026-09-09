@@ -9,7 +9,6 @@ import { createElement } from '../core/utils/dom';
 import { Header } from './components/Header';
 import { MetadataBar } from './components/MetadataBar';
 import { StatementView } from './components/StatementView';
-import { ProgressBar } from './components/ProgressBar';
 import { NotesDrawer } from './components/NotesDrawer';
 import { CommandPalette, type CommandItem } from './components/CommandPalette';
 import { KeyboardCheatSheet } from './components/KeyboardCheatSheet';
@@ -19,7 +18,6 @@ export class LeetfoxApp {
   private rootElement: HTMLElement;
   private floatingSwitcher: HTMLElement | null = null;
   private header!: Header;
-  private progressBar: ProgressBar | null = null;
   private statementView!: StatementView;
   private codeEditorPane!: CodeEditorPane;
   private notesDrawer!: NotesDrawer;
@@ -33,10 +31,11 @@ export class LeetfoxApp {
 
   private splitContainer!: HTMLElement;
   private editorPaneWrapper!: HTMLElement;
+  private verticalResizer!: HTMLElement;
   private isSplitMode = true;
 
   constructor(
-    private adapter: PlatformAdapter,
+    public adapter: PlatformAdapter,
     private problem: Problem,
     private state: ProblemState,
     private prefs: UserPreferences
@@ -77,31 +76,34 @@ export class LeetfoxApp {
 
     // Parallel Split Workspace Container (LeetCode style)
     this.splitContainer = createElement('div', { className: 'lf-split-container' });
+    const initialSplit = this.prefs.horizontalSplitPercent || 48;
+    this.splitContainer.style.setProperty('--lf-split-left-width', `${initialSplit}%`);
 
     // Left Pane: Problem Description, Tags, Examples
     const leftPane = createElement('div', { className: 'lf-split-left' });
     const metadataBar = new MetadataBar(this.problem);
     leftPane.appendChild(metadataBar.getElement());
 
-    // Category progress for CSES or any platform supporting it
-    if (this.adapter.getCategoryProgress) {
-      const allStates = await this.storage.getAllProblemStatesForPlatform(this.problem.platform);
-      const progress = this.adapter.getCategoryProgress(doc, allStates);
-      if (progress) {
-        this.progressBar = new ProgressBar(progress);
-        leftPane.appendChild(this.progressBar.getElement());
-      }
-    }
-
     this.statementView = new StatementView(this.problem, this.prefs.autoCopyExampleOnClick);
     leftPane.appendChild(this.statementView.getElement());
 
+    // Vertical Divider Resizer between left and right panes
+    this.verticalResizer = createElement('div', {
+      className: 'lf-resizer-vertical',
+      title: 'Drag to adjust pane widths (Double-click to reset)'
+    });
+    this.setupVerticalResizer(this.verticalResizer);
+
     // Right Pane: Modern Code Editor Box
     this.editorPaneWrapper = createElement('div', { className: 'lf-split-right' });
-    this.codeEditorPane = new CodeEditorPane(this.problem);
+    this.codeEditorPane = new CodeEditorPane(
+      this.problem,
+      this.prefs.theme === 'light' ? 'light' : 'dark'
+    );
     this.editorPaneWrapper.appendChild(this.codeEditorPane.getElement());
 
     this.splitContainer.appendChild(leftPane);
+    this.splitContainer.appendChild(this.verticalResizer);
     this.splitContainer.appendChild(this.editorPaneWrapper);
     main.appendChild(this.splitContainer);
 
@@ -135,7 +137,7 @@ export class LeetfoxApp {
       title: 'Switch to Leetfox View (O)',
       style: this.prefs.hideOriginalPage ? 'display: none !important;' : 'display: flex !important;',
       onClick: () => this.toggleViewOriginal()
-    }, '🦊 Switch to Leetfox (O)');
+    }, 'Switch to Leetfox (O)');
     doc.body.appendChild(this.floatingSwitcher);
 
     if (this.prefs.hideOriginalPage) {
@@ -153,7 +155,7 @@ export class LeetfoxApp {
     }
 
     this.setupKeyboardShortcuts();
-    this.setupStorageListeners(doc);
+    this.setupStorageListeners();
 
     // Typeset math (KaTeX / MathJax) if available on host page
     this.statementView.typesetMath();
@@ -164,12 +166,93 @@ export class LeetfoxApp {
     if (this.isSplitMode) {
       this.splitContainer.classList.remove('lf-full-statement');
       this.editorPaneWrapper.style.display = 'flex';
+      if (this.verticalResizer) this.verticalResizer.style.display = 'block';
     } else {
       this.splitContainer.classList.add('lf-full-statement');
       this.editorPaneWrapper.style.display = 'none';
+      if (this.verticalResizer) this.verticalResizer.style.display = 'none';
     }
     this.header.updateSplitMode(this.isSplitMode);
     this.commandPalette.setCommands(this.buildCommands());
+  }
+
+  private setupVerticalResizer(resizer: HTMLElement): void {
+    let isDragging = false;
+
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      isDragging = true;
+      document.body.classList.add('lf-resizing-h');
+
+      const onMouseMove = (moveEvent: MouseEvent) => {
+        if (!isDragging) return;
+        const rect = this.splitContainer.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        let percent = ((moveEvent.clientX - rect.left) / rect.width) * 100;
+        percent = Math.max(20, Math.min(80, percent));
+        this.splitContainer.style.setProperty('--lf-split-left-width', `${percent}%`);
+      };
+
+      const onMouseUp = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.classList.remove('lf-resizing-h');
+        window.removeEventListener('mousemove', onMouseMove);
+        window.removeEventListener('mouseup', onMouseUp);
+
+        const currentStyle = this.splitContainer.style.getPropertyValue('--lf-split-left-width');
+        const numVal = parseFloat(currentStyle);
+        if (!isNaN(numVal)) {
+          this.storage.savePreferences({ horizontalSplitPercent: Math.round(numVal) });
+        }
+      };
+
+      window.addEventListener('mousemove', onMouseMove);
+      window.addEventListener('mouseup', onMouseUp);
+    };
+
+    resizer.addEventListener('mousedown', onMouseDown);
+
+    // Double-click to reset to default 48%
+    resizer.addEventListener('dblclick', () => {
+      this.splitContainer.style.setProperty('--lf-split-left-width', '48%');
+      this.storage.savePreferences({ horizontalSplitPercent: 48 });
+    });
+
+    // Touch support for tablets and touch displays
+    const onTouchStart = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return;
+      isDragging = true;
+      document.body.classList.add('lf-resizing-h');
+
+      const onTouchMove = (moveEvent: TouchEvent) => {
+        if (!isDragging || moveEvent.touches.length !== 1) return;
+        const rect = this.splitContainer.getBoundingClientRect();
+        if (rect.width <= 0) return;
+        let percent = ((moveEvent.touches[0].clientX - rect.left) / rect.width) * 100;
+        percent = Math.max(20, Math.min(80, percent));
+        this.splitContainer.style.setProperty('--lf-split-left-width', `${percent}%`);
+      };
+
+      const onTouchEnd = () => {
+        if (!isDragging) return;
+        isDragging = false;
+        document.body.classList.remove('lf-resizing-h');
+        window.removeEventListener('touchmove', onTouchMove);
+        window.removeEventListener('touchend', onTouchEnd);
+
+        const currentStyle = this.splitContainer.style.getPropertyValue('--lf-split-left-width');
+        const numVal = parseFloat(currentStyle);
+        if (!isNaN(numVal)) {
+          this.storage.savePreferences({ horizontalSplitPercent: Math.round(numVal) });
+        }
+      };
+
+      window.addEventListener('touchmove', onTouchMove);
+      window.addEventListener('touchend', onTouchEnd);
+    };
+
+    resizer.addEventListener('touchstart', onTouchStart, { passive: true });
   }
 
   public isAnyModalOpen(): boolean {
@@ -278,9 +361,9 @@ export class LeetfoxApp {
     if (this.problem.submitUrl) {
       commands.push({
         id: 'submit-problem',
-        title: 'Go to Submit Page',
+        title: 'Open Submit Page in New Tab',
         category: 'Navigation',
-        run: () => { window.location.href = this.problem.submitUrl!; }
+        run: () => { window.open(this.problem.submitUrl!, '_blank'); }
       });
     }
 
@@ -292,6 +375,18 @@ export class LeetfoxApp {
         category: 'Help',
         run: () => { window.open(solUrl, '_blank'); }
       });
+    }
+
+    if (!this.problem.isLiveContest) {
+      const subUrl = this.problem.mySubmissionsUrl || this.problem.submissionsUrl;
+      if (subUrl) {
+        commands.push({
+          id: 'open-submissions',
+          title: 'View Submissions',
+          category: 'Navigation',
+          run: () => { window.open(subUrl, '_blank'); }
+        });
+      }
     }
 
     return commands;
@@ -388,7 +483,7 @@ export class LeetfoxApp {
     this.keyboardManager.start();
   }
 
-  private setupStorageListeners(doc: Document): void {
+  private setupStorageListeners(): void {
     const qualifiedKey = this.storage.getQualifiedKey(this.problem.platform, this.problem.id);
 
     this.unsubscribeState = this.storage.onStateChange(async (key, updatedState) => {
@@ -397,21 +492,15 @@ export class LeetfoxApp {
         this.header.updateState(this.state);
         this.notesDrawer.updateNotes(this.state.notes);
         this.commandPalette.setCommands(this.buildCommands());
-
-        // Update progress if applicable
-        if (this.progressBar && this.adapter.getCategoryProgress) {
-          const allStates = await this.storage.getAllProblemStatesForPlatform(this.problem.platform);
-          const progress = this.adapter.getCategoryProgress(doc, allStates);
-          if (progress) {
-            this.progressBar.update(progress);
-          }
-        }
       }
     });
 
     this.unsubscribePrefs = this.storage.onPreferencesChange((prefs) => {
       this.prefs = prefs;
       this.rootElement.dataset.lfTheme = this.prefs.theme;
+      if (this.codeEditorPane) {
+        this.codeEditorPane.setTheme(this.prefs.theme === 'light' ? 'light' : 'dark');
+      }
       this.header.updatePreferences(this.prefs);
       this.commandPalette.setCommands(this.buildCommands());
     });
@@ -448,6 +537,9 @@ export class LeetfoxApp {
     const newPrefs = await this.storage.savePreferences({ theme: newTheme });
     this.prefs = newPrefs;
     this.rootElement.dataset.lfTheme = this.prefs.theme;
+    if (this.codeEditorPane) {
+      this.codeEditorPane.setTheme(this.prefs.theme === 'light' ? 'light' : 'dark');
+    }
     this.header.updatePreferences(this.prefs);
     this.commandPalette.setCommands(this.buildCommands());
   }

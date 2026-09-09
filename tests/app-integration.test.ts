@@ -50,6 +50,20 @@ describe('LeetfoxApp Integration', () => {
     const ratingBadge = appEl?.querySelector('.lf-spec-badge.difficulty');
     expect(ratingBadge?.textContent).toContain('800');
 
+    // Submissions button checks
+    const headerBtns = Array.from(appEl?.querySelectorAll('.lf-header-actions button') || []);
+    const headerSubmissionsBtn = headerBtns.find(btn => btn.textContent?.includes('Submissions'));
+    expect(headerSubmissionsBtn).toBeDefined();
+
+    const metaLinks = Array.from(appEl?.querySelectorAll('.lf-metadata-actions a') || []);
+    const metaSubmissionsLink = metaLinks.find(link => link.textContent?.includes('Submissions'));
+    expect(metaSubmissionsLink).toBeDefined();
+    expect(metaSubmissionsLink?.getAttribute('href')).toBe('https://codeforces.com/contest/4/my');
+
+    const editorBtns = Array.from(appEl?.querySelectorAll('.lf-editor-toolbar button') || []);
+    const editorSubmissionsBtn = editorBtns.find(btn => btn.textContent?.includes('Submissions'));
+    expect(editorSubmissionsBtn).toBeDefined();
+
     // Examples checks
     const exampleCards = appEl?.querySelectorAll('.lf-example-card');
     expect(exampleCards?.length).toBe(1);
@@ -97,7 +111,7 @@ describe('LeetfoxApp Integration', () => {
     expect(appEl?.style.display).toBe('block');
   });
 
-  it('mounts on CSES and tracks category progress reactively', async () => {
+  it('mounts on CSES cleanly without progress bar bloat and handles state changes', async () => {
     const fixturePath = path.resolve(__dirname, 'fixtures/cses/task_1068.html');
     const fixtureHtml = fs.readFileSync(fixturePath, 'utf-8');
     const dom = new JSDOM(fixtureHtml, { url: 'https://cses.fi/problemset/task/1068' });
@@ -117,16 +131,14 @@ describe('LeetfoxApp Integration', () => {
     const appEl = doc.getElementById('leetfox-app');
     expect(appEl).not.toBeNull();
 
-    // Verify category progress bar is mounted
+    // Verify category progress bar is NOT mounted in the UI
     const progressCount = appEl?.querySelector('.lf-progress-count');
-    expect(progressCount).not.toBeNull();
-    expect(progressCount?.textContent).toContain('0 / 4 (0%)');
+    expect(progressCount).toBeNull();
+    const progressCard = appEl?.querySelector('.lf-progress-card');
+    expect(progressCard).toBeNull();
 
     // Mark current problem solved
     await app.toggleSolved();
-
-    // Verify progress bar updated reactively!
-    expect(progressCount?.textContent).toContain('1 / 4 (25%)');
 
     // Verify stored state in storage
     const savedState = await storage.getProblemState('cses', '1068');

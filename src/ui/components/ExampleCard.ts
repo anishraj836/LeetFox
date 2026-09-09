@@ -25,13 +25,13 @@ export class ExampleCard {
       className: 'lf-example-copy-btn',
       type: 'button',
       title: 'Copy Input'
-    }, '📋 Copy');
+    }, 'Copy');
 
     const doCopyInput = async () => {
       const ok = await copyToClipboard(this.example.input);
       if (ok) {
-        copyInputBtn.textContent = '✓ Copied!';
-        setTimeout(() => { copyInputBtn.textContent = '📋 Copy'; }, 1500);
+        copyInputBtn.textContent = 'Copied!';
+        setTimeout(() => { copyInputBtn.textContent = 'Copy'; }, 1500);
       }
     };
 
@@ -62,13 +62,13 @@ export class ExampleCard {
       className: 'lf-example-copy-btn',
       type: 'button',
       title: 'Copy Output'
-    }, '📋 Copy');
+    }, 'Copy');
 
     const doCopyOutput = async () => {
       const ok = await copyToClipboard(this.example.output);
       if (ok) {
-        copyOutputBtn.textContent = '✓ Copied!';
-        setTimeout(() => { copyOutputBtn.textContent = '📋 Copy'; }, 1500);
+        copyOutputBtn.textContent = 'Copied!';
+        setTimeout(() => { copyOutputBtn.textContent = 'Copy'; }, 1500);
       }
     };
 

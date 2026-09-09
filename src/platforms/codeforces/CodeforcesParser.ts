@@ -25,6 +25,7 @@ export class CodeforcesParser {
       const isLiveContest = this.detectLiveContest(doc, url);
       const solutionsUrl = this.extractSolutionsUrl(doc, url, urlInfo);
       const editorialUrl = this.extractEditorialUrl(doc, url);
+      const { submissionsUrl, mySubmissionsUrl } = this.extractSubmissionsUrls(doc, url, urlInfo);
 
       const id = `${urlInfo.contestId}${urlInfo.index}`;
 
@@ -48,6 +49,8 @@ export class CodeforcesParser {
         url: url.href,
         submitUrl: this.extractSubmitUrl(doc, url, urlInfo),
         solutionsUrl,
+        submissionsUrl,
+        mySubmissionsUrl,
         editorialUrl,
         isLiveContest
       };
@@ -330,6 +333,9 @@ export class CodeforcesParser {
       const href = submitLink.getAttribute('href');
       if (href) return new URL(href, currentUrl).href;
     }
+    if (urlInfo?.contestId && urlInfo?.index) {
+      return `https://${currentUrl.hostname}/contest/${urlInfo.contestId}/submit?submittedProblemIndex=${urlInfo.index}`;
+    }
     if (urlInfo?.contestId) {
       return `https://${currentUrl.hostname}/contest/${urlInfo.contestId}/submit`;
     }
@@ -398,5 +404,70 @@ export class CodeforcesParser {
     }
 
     return undefined;
+  }
+
+  public extractSubmissionsUrls(
+    doc: Document,
+    url: URL,
+    urlInfo: { contestId: string; index: string }
+  ): { submissionsUrl?: string; mySubmissionsUrl?: string } {
+    let mySubmissionsUrl: string | undefined;
+    let submissionsUrl: string | undefined;
+
+    const myLink = doc.querySelector('a[href*="/my"]');
+    if (myLink) {
+      const href = myLink.getAttribute('href');
+      if (href) mySubmissionsUrl = new URL(href, url).href;
+    }
+
+    const statusLink = doc.querySelector('a[href*="/status"], a[href*="/problemset/status"]');
+    if (statusLink) {
+      const href = statusLink.getAttribute('href');
+      if (href) submissionsUrl = new URL(href, url).href;
+    }
+
+    const isProblemset = url.pathname.includes('/problemset/');
+    const isGym = url.pathname.includes('/gym/');
+    const isGroup = url.pathname.includes('/group/');
+
+    if (urlInfo.contestId) {
+      if (isProblemset) {
+        if (!mySubmissionsUrl) {
+          mySubmissionsUrl = `https://${url.hostname}/problemset/status?my=on`;
+        }
+        if (!submissionsUrl && urlInfo.index) {
+          submissionsUrl = `https://${url.hostname}/problemset/status/${urlInfo.contestId}/problem/${urlInfo.index}`;
+        }
+      } else if (isGym) {
+        if (!mySubmissionsUrl) {
+          mySubmissionsUrl = `https://${url.hostname}/gym/${urlInfo.contestId}/my`;
+        }
+        if (!submissionsUrl) {
+          submissionsUrl = `https://${url.hostname}/gym/${urlInfo.contestId}/status`;
+        }
+      } else if (isGroup) {
+        const groupMatch = url.pathname.match(/\/group\/([^/]+)\/contest\/([^/]+)/);
+        if (groupMatch) {
+          if (!mySubmissionsUrl) {
+            mySubmissionsUrl = `https://${url.hostname}/group/${groupMatch[1]}/contest/${groupMatch[2]}/my`;
+          }
+          if (!submissionsUrl) {
+            submissionsUrl = `https://${url.hostname}/group/${groupMatch[1]}/contest/${groupMatch[2]}/status`;
+          }
+        }
+      } else {
+        // Standard contest: /contest/:id/problem/:index
+        if (!mySubmissionsUrl) {
+          mySubmissionsUrl = `https://${url.hostname}/contest/${urlInfo.contestId}/my`;
+        }
+        if (!submissionsUrl) {
+          submissionsUrl = urlInfo.index
+            ? `https://${url.hostname}/contest/${urlInfo.contestId}/status/${urlInfo.index}`
+            : `https://${url.hostname}/contest/${urlInfo.contestId}/status`;
+        }
+      }
+    }
+
+    return { submissionsUrl, mySubmissionsUrl };
   }
 }

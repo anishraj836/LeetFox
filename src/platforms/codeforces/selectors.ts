@@ -25,6 +25,6 @@ export const CODEFORCES_SELECTORS = {
   ratingTag: 'span[title="Difficulty"]',
   contestTitle: '#sidebar .rtable th a, .contest-name, #sidebar a[href*="/contest/"]',
   problemListTable: '#sidebar .rtable tr, table.problems tr',
-  submitForm: 'form.submitForm',
+  submitForm: 'form.submitForm, form.submit-form, form[action*="/submit"]',
   submitLink: 'a[href*="/submit"]'
 };

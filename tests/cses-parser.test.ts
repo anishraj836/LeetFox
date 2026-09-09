@@ -42,8 +42,10 @@ describe('CSESParser', () => {
     expect(problem.navigation.nextUrl).toContain('/problemset/task/1083');
     expect(problem.navigation.nextTitle).toBe('Missing Number');
 
-    // Submit URL
+    // Submit & Submissions URLs
     expect(problem.submitUrl).toContain('/problemset/submit/1068/');
+    expect(problem.submissionsUrl).toBe('https://cses.fi/problemset/stats/1068/');
+    expect(problem.mySubmissionsUrl).toBe('https://cses.fi/problemset/result/1068/');
   });
 
   it('calculates category progress correctly based on solved states', () => {

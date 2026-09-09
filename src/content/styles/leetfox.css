@@ -34,6 +34,17 @@
   --lf-code-bg: #141720;
   --lf-code-border: #262b3a;
 
+  --lf-syntax-plain: #f1f5f9;
+  --lf-syntax-keyword: #cba6f7;
+  --lf-syntax-type: #f9e2af;
+  --lf-syntax-function: #89b4fa;
+  --lf-syntax-string: #a6e3a1;
+  --lf-syntax-number: #fab387;
+  --lf-syntax-comment: #6c7086;
+  --lf-syntax-meta: #f38ba8;
+  --lf-syntax-operator: #89dceb;
+  --lf-syntax-bracket: #9399b2;
+
   --lf-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --lf-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
   --lf-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -2px rgba(0, 0, 0, 0.4);
@@ -71,8 +82,19 @@
   --lf-warning-light: rgba(217, 119, 6, 0.1);
   --lf-danger: #dc2626;
 
-  --lf-code-bg: #f8fafc;
+  --lf-code-bg: #ffffff;
   --lf-code-border: #e2e8f0;
+
+  --lf-syntax-plain: #0f172a;
+  --lf-syntax-keyword: #7c3aed;
+  --lf-syntax-type: #0369a1;
+  --lf-syntax-function: #1d4ed8;
+  --lf-syntax-string: #15803d;
+  --lf-syntax-number: #c2410c;
+  --lf-syntax-comment: #64748b;
+  --lf-syntax-meta: #b91c1c;
+  --lf-syntax-operator: #0284c7;
+  --lf-syntax-bracket: #334155;
 
   --lf-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --lf-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
@@ -87,8 +109,9 @@ body.lf-active {
   margin: 0 !important;
   padding: 0 !important;
   background-color: var(--lf-bg-base) !important;
-  min-height: 100vh !important;
-  overflow-x: hidden !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
 }
 
 /* Hide all other direct children of body when Leetfox is active */
@@ -113,9 +136,16 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
 
 #leetfox-app {
   display: block !important;
-  position: relative !important;
-  width: 100% !important;
-  min-height: 100vh !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+  overflow: hidden !important;
+  z-index: 99999 !important;
   background-color: var(--lf-bg-base) !important;
   color: var(--lf-text-main) !important;
   font-family: var(--lf-font-sans) !important;
@@ -154,21 +184,23 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
    ========================================================================== */
 
 .lf-header {
-  position: sticky !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
+  position: relative !important;
   width: 100% !important;
+  height: 52px !important;
+  max-height: 52px !important;
   z-index: 10000 !important;
   background-color: var(--lf-bg-surface) !important;
   border-bottom: 1px solid var(--lf-border) !important;
   box-shadow: var(--lf-shadow-sm) !important;
-  padding: 10px 24px !important;
+  padding: 0 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
 }
 
 .lf-header-inner {
-  max-width: 1100px !important;
-  margin: 0 auto !important;
+  max-width: 100% !important;
+  margin: 0 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: space-between !important;
@@ -339,10 +371,14 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
    ========================================================================== */
 
 .lf-main {
-  max-width: 1050px !important;
-  margin: 0 auto !important;
-  padding: 28px 24px 80px !important;
   width: 100% !important;
+  max-width: 100% !important;
+  height: calc(100vh - 52px) !important;
+  max-height: calc(100vh - 52px) !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  overflow: hidden !important;
+  display: flex !important;
 }
 
 /* Problem Metadata Bar */
@@ -366,6 +402,13 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   flex-wrap: wrap !important;
   gap: 12px !important;
   width: 100% !important;
+}
+
+.lf-metadata-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap !important;
 }
 
 .lf-problem-title-large {
@@ -681,8 +724,10 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   color: var(--lf-text-main) !important;
   white-space: pre !important;
   overflow-x: auto !important;
+  overflow-y: auto !important;
   max-height: 320px !important;
   width: 100% !important;
+  overscroll-behavior: contain !important;
 }
 
 /* ==========================================================================
@@ -940,46 +985,201 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
    LeetCode-Style Parallel Split Workspace & Code Editor
    ========================================================================== */
 
-.lf-main {
-  max-width: 1600px !important;
-  margin: 0 auto !important;
-  padding: 20px 24px 80px !important;
-  width: 100% !important;
-}
-
 .lf-split-container {
   display: grid !important;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.2fr) !important;
-  gap: 20px !important;
+  grid-template-columns: minmax(260px, var(--lf-split-left-width, 48%)) 8px minmax(300px, 1fr) !important;
+  grid-template-rows: 100% !important;
+  gap: 0 !important;
   width: 100% !important;
-  align-items: start !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  align-items: stretch !important;
 }
 
 .lf-split-container.lf-full-statement {
+  display: block !important;
   grid-template-columns: minmax(0, 1fr) !important;
-  max-width: 1050px !important;
-  margin: 0 auto !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  height: 100% !important;
 }
 
-@media (max-width: 1024px) {
-  .lf-split-container {
-    grid-template-columns: minmax(0, 1fr) !important;
-  }
+.lf-split-container.lf-full-statement .lf-resizer-vertical {
+  display: none !important;
 }
 
 .lf-split-left {
   min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  padding: 24px 28px 80px !important;
+  border-right: none !important;
   display: flex !important;
   flex-direction: column !important;
 }
 
+.lf-split-container.lf-full-statement .lf-split-left {
+  max-width: 1050px !important;
+  margin: 0 auto !important;
+  border-right: none !important;
+  padding: 28px 24px 80px !important;
+  height: auto !important;
+  overflow-y: visible !important;
+}
+
+/* Vertical Resizer (Left vs Right Workspace Splitter) */
+.lf-resizer-vertical {
+  width: 8px !important;
+  cursor: col-resize !important;
+  background-color: var(--lf-border) !important;
+  position: relative !important;
+  z-index: 50 !important;
+  user-select: none !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.lf-resizer-vertical:hover,
+body.lf-resizing-h .lf-resizer-vertical {
+  background-color: var(--lf-accent) !important;
+}
+
+.lf-resizer-vertical::before {
+  content: '' !important;
+  position: absolute !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  left: -5px !important;
+  right: -5px !important;
+  z-index: 51 !important;
+  cursor: col-resize !important;
+}
+
+.lf-resizer-vertical::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 2px !important;
+  height: 36px !important;
+  border-radius: 1px !important;
+  background-color: var(--lf-text-muted) !important;
+  opacity: 0.8 !important;
+  transition: opacity 0.15s ease, background-color 0.15s ease !important;
+  pointer-events: none !important;
+}
+
+.lf-resizer-vertical:hover::after,
+body.lf-resizing-h .lf-resizer-vertical::after {
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+}
+
 .lf-split-right {
   min-width: 0 !important;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: hidden !important;
+  padding: 16px 20px !important;
   display: flex !important;
   flex-direction: column !important;
-  gap: 16px !important;
-  position: sticky !important;
-  top: 64px !important;
+  gap: 0 !important;
+  position: static !important;
+}
+
+/* Independent Pane Scrollbar Styling */
+.lf-split-left::-webkit-scrollbar,
+.lf-split-right::-webkit-scrollbar,
+.lf-console-body::-webkit-scrollbar,
+.lf-console-pre::-webkit-scrollbar,
+.lf-console-tabs::-webkit-scrollbar,
+.lf-example-pre::-webkit-scrollbar,
+.lf-cm-host .cm-scroller::-webkit-scrollbar {
+  width: 7px !important;
+  height: 7px !important;
+}
+
+.lf-split-left::-webkit-scrollbar-track,
+.lf-split-right::-webkit-scrollbar-track,
+.lf-console-body::-webkit-scrollbar-track,
+.lf-console-pre::-webkit-scrollbar-track,
+.lf-console-tabs::-webkit-scrollbar-track,
+.lf-example-pre::-webkit-scrollbar-track,
+.lf-cm-host .cm-scroller::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.lf-split-left::-webkit-scrollbar-thumb,
+.lf-split-right::-webkit-scrollbar-thumb,
+.lf-console-body::-webkit-scrollbar-thumb,
+.lf-console-pre::-webkit-scrollbar-thumb,
+.lf-console-tabs::-webkit-scrollbar-thumb,
+.lf-example-pre::-webkit-scrollbar-thumb,
+.lf-cm-host .cm-scroller::-webkit-scrollbar-thumb {
+  background-color: var(--lf-border) !important;
+  border-radius: 4px !important;
+}
+
+.lf-split-left::-webkit-scrollbar-thumb:hover,
+.lf-split-right::-webkit-scrollbar-thumb:hover,
+.lf-console-body::-webkit-scrollbar-thumb:hover,
+.lf-console-pre::-webkit-scrollbar-thumb:hover,
+.lf-console-tabs::-webkit-scrollbar-thumb:hover,
+.lf-example-pre::-webkit-scrollbar-thumb:hover,
+.lf-cm-host .cm-scroller::-webkit-scrollbar-thumb:hover {
+  background-color: var(--lf-text-muted) !important;
+}
+
+@media (max-width: 1024px) {
+  body.lf-active {
+    height: auto !important;
+    overflow-y: auto !important;
+  }
+
+  #leetfox-app {
+    position: relative !important;
+    height: auto !important;
+    min-height: 100vh !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .lf-main {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .lf-split-container {
+    grid-template-columns: minmax(0, 1fr) !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  .lf-split-left,
+  .lf-split-right {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    border-right: none !important;
+    padding: 16px !important;
+  }
+
+  .lf-resizer-vertical,
+  .lf-resizer-horizontal {
+    display: none !important;
+  }
 }
 
 /* Code Editor Pane */
@@ -992,6 +1192,9 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   flex-direction: column !important;
   box-shadow: var(--lf-shadow-sm) !important;
   width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 1 0 !important;
 }
 
 .lf-editor-toolbar {
@@ -1002,6 +1205,7 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   border-bottom: 1px solid var(--lf-border) !important;
   background-color: var(--lf-bg-card) !important;
   gap: 12px !important;
+  flex-shrink: 0 !important;
 }
 
 .lf-editor-tools-left,
@@ -1026,21 +1230,47 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
 
 /* CodeMirror 6 Editor Host */
 .lf-cm-host {
-  min-height: 420px !important;
-  max-height: 580px !important;
-  border-bottom: 1px solid var(--lf-border) !important;
+  flex: 1 1 0 !important;
+  min-height: 120px !important;
+  border-bottom: none !important;
   position: relative !important;
   overflow: hidden !important;
+  background-color: var(--lf-code-bg) !important;
 }
 
 .lf-cm-host .cm-editor {
   height: 100% !important;
-  min-height: 420px !important;
-  max-height: 580px !important;
+  min-height: 100% !important;
+  max-height: 100% !important;
+  background-color: var(--lf-code-bg) !important;
+  color: var(--lf-text-main) !important;
 }
 
 .lf-cm-host .cm-scroller {
+  height: 100% !important;
   overflow: auto !important;
+  overscroll-behavior: contain !important;
+  background-color: var(--lf-code-bg) !important;
+}
+
+[data-lf-theme="light"] .lf-cm-host .cm-gutters {
+  background-color: var(--lf-bg-base) !important;
+  color: var(--lf-text-muted) !important;
+  border-right: 1px solid var(--lf-code-border) !important;
+}
+
+[data-lf-theme="light"] .lf-cm-host .cm-activeLine {
+  background-color: rgba(79, 70, 229, 0.04) !important;
+}
+
+[data-lf-theme="light"] .lf-cm-host .cm-activeLineGutter {
+  background-color: rgba(79, 70, 229, 0.08) !important;
+  color: var(--lf-accent) !important;
+}
+
+[data-lf-theme="light"] .lf-cm-host .cm-selectionBackground,
+[data-lf-theme="light"] .lf-cm-host .cm-content ::selection {
+  background-color: rgba(79, 70, 229, 0.15) !important;
 }
 
 /* Prevent host page styles from bleeding into CodeMirror */
@@ -1049,12 +1279,115 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
 }
 
 
+/* Horizontal Resizer (Editor vs Console Splitter) */
+.lf-resizer-horizontal {
+  height: 8px !important;
+  width: 100% !important;
+  cursor: row-resize !important;
+  background-color: var(--lf-border) !important;
+  position: relative !important;
+  z-index: 40 !important;
+  user-select: none !important;
+  flex-shrink: 0 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: background-color 0.15s ease !important;
+}
+
+.lf-resizer-horizontal:hover,
+body.lf-resizing-v .lf-resizer-horizontal {
+  background-color: var(--lf-accent) !important;
+}
+
+.lf-resizer-horizontal::before {
+  content: '' !important;
+  position: absolute !important;
+  top: -5px !important;
+  bottom: -5px !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 41 !important;
+  cursor: row-resize !important;
+}
+
+.lf-resizer-horizontal::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) !important;
+  width: 36px !important;
+  height: 2px !important;
+  border-radius: 1px !important;
+  background-color: var(--lf-text-muted) !important;
+  opacity: 0.8 !important;
+  transition: opacity 0.15s ease, background-color 0.15s ease !important;
+  pointer-events: none !important;
+}
+
+.lf-resizer-horizontal:hover::after,
+body.lf-resizing-v .lf-resizer-horizontal::after {
+  background-color: #ffffff !important;
+  opacity: 1 !important;
+}
+
+/* Global Resizing Cursors */
+body.lf-resizing-h,
+body.lf-resizing-h * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+body.lf-resizing-v,
+body.lf-resizing-v * {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
 /* Testcase Console Card */
 .lf-console-card {
   background-color: var(--lf-bg-surface) !important;
-  border-top: 1px solid var(--lf-border) !important;
+  border-top: none !important;
   display: flex !important;
   flex-direction: column !important;
+  flex: 0 0 auto !important;
+  height: 270px;
+  min-height: 80px;
+  overflow: hidden !important;
+}
+
+.lf-console-card.collapsed {
+  height: 38px !important;
+  min-height: 38px !important;
+  max-height: 38px !important;
+  overflow: hidden !important;
+  transition: height 0.15s ease !important;
+}
+
+.lf-console-card.collapsed .lf-console-body {
+  display: none !important;
+}
+
+.lf-btn-console-toggle {
+  font-size: 13px !important;
+  padding: 1px 6px !important;
+  color: var(--lf-text-muted) !important;
+  border: 1px solid var(--lf-border) !important;
+  border-radius: 4px !important;
+  background-color: var(--lf-bg-surface) !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.15s ease !important;
+}
+
+.lf-btn-console-toggle:hover {
+  color: var(--lf-text-main) !important;
+  border-color: var(--lf-accent) !important;
+  background-color: var(--lf-bg-hover) !important;
 }
 
 .lf-console-header {
@@ -1064,6 +1397,7 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   align-items: center !important;
   justify-content: space-between !important;
   background-color: var(--lf-bg-card) !important;
+  flex-shrink: 0 !important;
 }
 
 .lf-console-title {
@@ -1074,12 +1408,25 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   letter-spacing: 0.04em !important;
 }
 
+.lf-console-tabs-wrapper {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  max-width: 65% !important;
+  overflow: hidden !important;
+}
+
 .lf-console-tabs {
   display: flex !important;
   gap: 6px !important;
+  overflow-x: auto !important;
+  flex: 1 1 auto !important;
 }
 
 .lf-console-tab {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
   padding: 3px 8px !important;
   font-size: 11px !important;
   font-weight: 600 !important;
@@ -1089,6 +1436,14 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   border: 1px solid var(--lf-border) !important;
   cursor: pointer !important;
   line-height: 1 !important;
+  flex-shrink: 0 !important;
+  transition: all 0.15s ease !important;
+  user-select: none !important;
+}
+
+.lf-console-tab:hover {
+  border-color: var(--lf-border-hover) !important;
+  color: var(--lf-text-main) !important;
 }
 
 .lf-console-tab.active {
@@ -1097,26 +1452,169 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   border-color: var(--lf-accent) !important;
 }
 
+.lf-console-tab-label {
+  display: inline-block !important;
+}
+
+.lf-console-tab-close {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  color: inherit !important;
+  opacity: 0.7 !important;
+  margin-left: 2px !important;
+  transition: all 0.15s ease !important;
+  cursor: pointer !important;
+}
+
+.lf-console-tab-close:hover {
+  opacity: 1 !important;
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  color: #ef4444 !important;
+}
+
+.lf-console-tab.lf-btn-add-case {
+  background-color: transparent !important;
+  border: 1px dashed var(--lf-border) !important;
+  color: var(--lf-accent) !important;
+  font-weight: 700 !important;
+}
+
+.lf-console-tab.lf-btn-add-case:hover {
+  background-color: rgba(99, 102, 241, 0.12) !important;
+  border-color: var(--lf-accent) !important;
+}
+
+.lf-btn-run-all {
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  border-radius: 4px !important;
+  background-color: var(--lf-bg-card) !important;
+  color: var(--lf-accent) !important;
+  border: 1px solid var(--lf-border) !important;
+  cursor: pointer !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+  transition: all 0.15s ease !important;
+}
+
+.lf-btn-run-all:hover {
+  background-color: var(--lf-accent) !important;
+  color: #ffffff !important;
+  border-color: var(--lf-accent) !important;
+}
+
+.lf-console-case-toolbar {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding-bottom: 2px !important;
+  flex-shrink: 0 !important;
+}
+
+.lf-console-case-label {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: var(--lf-text-secondary) !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.lf-console-case-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+}
+
+.lf-console-action-btn {
+  background: transparent !important;
+  border: 1px solid var(--lf-border) !important;
+  border-radius: 4px !important;
+  color: var(--lf-text-secondary) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  padding: 2px 7px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  line-height: 1.3 !important;
+}
+
+.lf-console-action-btn:hover {
+  border-color: var(--lf-border-hover) !important;
+  color: var(--lf-text-main) !important;
+  background-color: var(--lf-bg-surface) !important;
+}
+
+.lf-console-action-btn.delete:hover {
+  border-color: #ef4444 !important;
+  color: #ef4444 !important;
+  background-color: rgba(239, 68, 68, 0.08) !important;
+}
+
+.lf-console-textarea {
+  background-color: var(--lf-code-bg) !important;
+  padding: 8px 10px !important;
+  border-radius: 6px !important;
+  border: 1px solid var(--lf-code-border) !important;
+  font-family: var(--lf-font-mono) !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: var(--lf-text-main) !important;
+  margin: 0 !important;
+  white-space: pre !important;
+  min-height: 60px !important;
+  max-height: 180px !important;
+  overflow-y: auto !important;
+  overflow-x: auto !important;
+  word-break: normal !important;
+  resize: vertical !important;
+  outline: none !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.lf-console-textarea:focus {
+  border-color: var(--lf-accent) !important;
+  box-shadow: 0 0 0 1px var(--lf-accent) !important;
+}
+
+.lf-console-textarea::placeholder {
+  color: var(--lf-text-muted) !important;
+  font-style: italic !important;
+}
+
 .lf-console-body {
   padding: 12px 14px !important;
   display: flex !important;
   flex-direction: column !important;
   gap: 12px !important;
-  min-height: 150px !important;
-  max-height: 280px !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
   overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
 }
 
 .lf-console-grid {
   display: grid !important;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)) !important;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
   gap: 10px !important;
+  width: 100% !important;
 }
 
 .lf-console-io-block {
   display: flex !important;
   flex-direction: column !important;
   gap: 4px !important;
+  min-width: 0 !important;
 }
 
 .lf-console-io-title {
@@ -1142,6 +1640,8 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   margin: 0 !important;
   white-space: pre-wrap !important;
   min-height: 38px !important;
+  max-height: 160px !important;
+  overflow-y: auto !important;
   word-break: break-all !important;
 }
 
@@ -1158,7 +1658,7 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
 }
 
 .lf-btn-suggestions.active {
-  background-color: rgba(137, 180, 250, 0.15) !important;
+  background-color: var(--lf-accent-light) !important;
   border-color: var(--lf-accent) !important;
   color: var(--lf-accent) !important;
 }
@@ -1212,6 +1712,11 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   color: var(--lf-text-main) !important;
 }
 
+.lf-submit-page-banner-warning {
+  border-color: #f59e0b !important;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2) !important;
+}
+
 .lf-banner-icon {
   font-size: 28px !important;
   flex-shrink: 0 !important;
@@ -1262,32 +1767,56 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
 }
 
 .lf-console-status-badge.accepted {
-  background-color: rgba(16, 185, 129, 0.15) !important;
-  color: #10b981 !important;
-  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  background-color: var(--lf-success-light) !important;
+  color: var(--lf-success) !important;
+  border: 1px solid var(--lf-success) !important;
 }
 
 .lf-console-status-badge.wrong-answer {
   background-color: rgba(239, 68, 68, 0.15) !important;
-  color: #ef4444 !important;
-  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: var(--lf-danger) !important;
+  border: 1px solid var(--lf-danger) !important;
 }
 
-.lf-console-status-badge.compile-error,
+.lf-console-status-badge.compile-error {
+  background-color: var(--lf-warning-light) !important;
+  color: var(--lf-warning) !important;
+  border: 1px solid var(--lf-warning) !important;
+}
+
+.lf-console-status-badge.runtime-error {
+  background-color: rgba(220, 38, 38, 0.15) !important;
+  color: var(--lf-danger) !important;
+  border: 1px solid var(--lf-danger) !important;
+}
+
+.lf-console-status-badge.timeout {
+  background-color: var(--lf-primary-light) !important;
+  color: var(--lf-primary) !important;
+  border: 1px solid var(--lf-primary) !important;
+}
+
+.lf-console-status-badge.network-error,
+.lf-console-status-badge.rate-limit {
+  background-color: var(--lf-accent-light) !important;
+  color: var(--lf-accent) !important;
+  border: 1px solid var(--lf-accent) !important;
+}
+
 .lf-console-status-badge.error {
-  background-color: rgba(245, 158, 11, 0.15) !important;
-  color: #f59e0b !important;
-  border: 1px solid rgba(245, 158, 11, 0.3) !important;
+  background-color: rgba(239, 68, 68, 0.15) !important;
+  color: var(--lf-danger) !important;
+  border: 1px solid var(--lf-danger) !important;
 }
 
 .lf-console-status-badge.running {
-  background-color: rgba(99, 102, 241, 0.15) !important;
+  background-color: var(--lf-accent-light) !important;
   color: var(--lf-accent) !important;
 }
 
 .lf-console-pre.output-accepted {
-  border-color: #10b981 !important;
-  background-color: rgba(16, 185, 129, 0.08) !important;
+  border-color: var(--lf-success) !important;
+  background-color: var(--lf-success-light) !important;
 }
 
 .lf-console-pre.output-wrong {
@@ -1300,6 +1829,55 @@ body.lf-active > :not(#leetfox-app):not(#lf-floating-switcher):not(script):not(s
   background-color: rgba(245, 158, 11, 0.08) !important;
   color: #f87171 !important;
   white-space: pre-wrap !important;
+}
+
+/* Diagnostic Hints Card */
+.lf-console-hints-card {
+  margin-top: 8px !important;
+  padding: 8px 12px !important;
+  border-radius: 6px !important;
+  background: rgba(99, 102, 241, 0.08) !important;
+  border: 1px solid rgba(99, 102, 241, 0.25) !important;
+}
+
+.lf-console-hints-title {
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  color: #818cf8 !important;
+  margin-bottom: 4px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+}
+
+.lf-console-hints-list {
+  margin: 0 !important;
+  padding-left: 18px !important;
+  font-size: 12px !important;
+  color: var(--lf-text-muted) !important;
+  line-height: 1.4 !important;
+}
+
+.lf-console-hints-list li {
+  margin-bottom: 3px !important;
+}
+
+.lf-btn-retry-run {
+  margin-top: 6px !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  background-color: #4f46e5 !important;
+  border: 1px solid #4338ca !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.lf-btn-retry-run:hover {
+  background-color: #4338ca !important;
 }
 
 /* Not Logged In Modal Overlay */

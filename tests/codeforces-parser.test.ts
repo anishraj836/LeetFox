@@ -43,8 +43,10 @@ describe('CodeforcesParser', () => {
     expect(problem.navigation.nextUrl).toContain('/contest/4/problem/B');
     expect(problem.navigation.nextTitle).toBe('Before an Exam');
 
-    // Submit URL
+    // Submit & Submissions URLs
     expect(problem.submitUrl).toContain('/contest/4/submit?submittedProblemIndex=A');
+    expect(problem.mySubmissionsUrl).toBe('https://codeforces.com/contest/4/my');
+    expect(problem.submissionsUrl).toBe('https://codeforces.com/contest/4/status/A');
   });
 
   it('handles problem pages with missing optional fields without throwing', () => {
@@ -66,6 +68,8 @@ describe('CodeforcesParser', () => {
     expect(problem?.difficulty).toBeUndefined();
     expect(problem?.examples).toEqual([]);
     expect(problem?.noteHtml).toBeUndefined();
+    expect(problem?.mySubmissionsUrl).toBe('https://codeforces.com/problemset/status?my=on');
+    expect(problem?.submissionsUrl).toBe('https://codeforces.com/problemset/status/100/problem/B');
   });
 
   it('gracefully returns null on non-problem pages', () => {

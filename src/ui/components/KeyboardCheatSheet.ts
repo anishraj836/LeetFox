@@ -40,7 +40,7 @@ export class KeyboardCheatSheet {
 
     // Header
     const header = createElement('div', { className: 'lf-modal-header' });
-    const title = createElement('h3', { className: 'lf-section-header', style: 'margin: 0;' }, '⌨️ Keyboard Shortcuts');
+    const title = createElement('h3', { className: 'lf-section-header', style: 'margin: 0;' }, 'Keyboard Shortcuts');
     const closeBtn = createElement('button', {
       className: 'lf-btn lf-btn-icon',
       type: 'button',
